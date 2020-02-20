@@ -65,7 +65,7 @@
             const maze = new MyMaze(MyMazeTestData, 5, 5, cubeGeometry, cubeMaterial, CUBE_SIZE);
             maze.addToScene(scene);
 
-            const hero = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xFF0000, wireframe: false }));
+            const hero = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshPhongMaterial({ color: 0xFF0000, wireframe: false }));
             hero.position.set(0, 1.6, 0);
             camera.position.set(0, -0.5, 0);
             camera.lookAt(0, -0.5, 1);
