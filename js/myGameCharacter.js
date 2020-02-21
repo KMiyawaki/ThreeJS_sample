@@ -1,4 +1,4 @@
-MyGameItem = class {
+class MyGameItem {
     constructor(name, targetParam, bonusValue, stock) {
         this.name = name;
         this.targetParam = targetParam;
@@ -20,7 +20,7 @@ MyGameItem = class {
     }
 }
 
-MyGameWepon = class {
+class MyGameWepon {
     constructor(name, attackMin, attackMax, attackCount, stock) {
         this.name = name;
         this.attackMin = attackMin;
@@ -57,7 +57,7 @@ MyGameWepon = class {
     }
 }
 
-MyGameCharacter = class {
+class MyGameCharacter {
     constructor(name, hp, power, defense, speed, imageURL = null) {
         this.name = name;
         this.hp = hp;

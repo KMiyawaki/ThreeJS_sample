@@ -14,7 +14,7 @@ const MyMazeTestData = [
     1, 1, 1, 1, 1
 ];
 
-MyMaze = class {
+class MyMaze {
     constructor(mapData, width, height, geometry, material, cubeSize) {
         this.mapData = mapData;
         this.width = width;
@@ -74,7 +74,7 @@ MyMaze = class {
         for (let iy = i.iy - Math.floor(ih / 2); iy < ih; iy++) {
             for (let ix = i.ix - Math.floor(iw / 2); ix < iw; ix++) {
                 const cell = this.getCellFromIndex(ix, iy);
-                if(cell){
+                if (cell) {
                     cells.push(cell);
                 }
             }

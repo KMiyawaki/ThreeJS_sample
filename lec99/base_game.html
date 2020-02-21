@@ -37,12 +37,12 @@
         </div>
     </div>
     <script type="text/javascript">
-        const setElementSize = function (element, size, unit = "px") {
+        function setElementSize(element, size, unit = "px") {
             element.style.width = size.width + unit;
             element.style.height = size.height + unit;
         }
 
-        const init = function () {
+        function init() {
             const divScreen = document.getElementById("screen");
             const divGlView = document.getElementById("glView");
             const divStatus = document.getElementById("status");
@@ -161,15 +161,15 @@
             }
             renderFrame();
 
-            const onResize = function () {
+            window.addEventListener('resize', function () {
                 divDebugText.value += ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
                 const glViewSize = divGlView.getBoundingClientRect();
                 renderer.setSize(glViewSize.width, glViewSize.height);
                 camera.aspect = glViewSize.width / glViewSize.height;
                 camera.updateProjectionMatrix();
-            }
+            });
 
-            const onPressed = function (element) {
+            function onPressed(element) {
                 // Battle
                 const itemIndex = parseInt(element.value);
                 divDebugText.value += ("Item Index: " + itemIndex + "\n");
@@ -189,8 +189,6 @@
                     }
                 }
             }
-
-            window.addEventListener('resize', onResize);
         }
 
         window.addEventListener('load', init);
