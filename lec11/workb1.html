@@ -46,9 +46,9 @@
             const divScreen = document.getElementById("screen");
             const divGlView = document.getElementById("glView");
             const divStatus = document.getElementById("status");
-            const divMessage = document.getElementById("message");
-            const divDebugText = document.getElementById("debugText");
-            divDebugText.value = ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
+            const taMessage = document.getElementById("message");
+            const taDebugText = document.getElementById("debugText");
+            taDebugText.value = ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
             const [scene, camera, renderer, clock, axes] = mylib2020.initThreeInElement(divGlView);
 
             let plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0xCCFFCC }));
@@ -65,29 +65,31 @@
             const maze = new MyMaze(MyMazeTestData, 5, 5, cubeGeometry, cubeMaterial, CUBE_SIZE);
             maze.addToScene(scene);
 
-            const hero = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshPhongMaterial({ color: 0xFF0000, wireframe: false }));
-            hero.position.set(0, 1.6, 0);
+            const heroObject = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshPhongMaterial({ color: 0xFF0000, wireframe: false }));
+            heroObject.position.set(0, 1.6, 0);
             camera.position.set(0, -0.5, 0);
             camera.lookAt(0, -0.5, 1);
-            scene.add(hero);
-            hero.add(camera);
-            const spotLight = new THREE.SpotLight(0xffffff, 1, 20, THREE.Math.degToRad(34), 0.5, 0);
-            spotLight.position.copy(hero.position);
+            scene.add(heroObject);
+            heroObject.add(camera);
+            const spotLight = new THREE.SpotLight(0xFFFFFF, 1);
+            spotLight.angle = THREE.Math.degToRad(34);
+            spotLight.penumbra = 0.5; 
+            spotLight.position.copy(heroObject.position);
             spotLight.position.z -= 2;
             spotLight.castShadow = true;
-            hero.add(spotLight);
-            hero.add(spotLight.target);
+            heroObject.add(spotLight);
+            heroObject.add(spotLight.target);
             spotLight.target.position.copy(spotLight.position);
             spotLight.target.position.z += 1;
             spotLight.target.position.y -= 1;
 
-            hero.position.set(-CUBE_SIZE, 1.6, -CUBE_SIZE);
-            hero.rotateY(THREE.Math.degToRad(180));
+            heroObject.position.set(-CUBE_SIZE, 1.6, -CUBE_SIZE);
+            heroObject.rotateY(THREE.Math.degToRad(180));
 
-            const heroData = new MyGameCharacter("主人公", 15, 5, 5, 5);
-            heroData.wepon.name = "短剣";
-            heroData.items.push(new MyGameWepon("火炎瓶", 5, 10, 3, 4));
-            hero.userData = heroData;
+            const hero = new MyGameCharacter("主人公", 15, 5, 5, 5);
+            hero.wepon.name = "短剣";
+            hero.items.push(new MyGameItem("火炎瓶", 5, 10, 3, 4));
+            heroObject.userData = hero;
 
             // Setup GUI
             const arrows = {};
@@ -110,7 +112,7 @@
                     function (element) {
                         onPressed(element);
                     },
-                    function (element) { divDebugText.value += ("Released: " + e.id + "\n"); });
+                    function (element) { taDebugText.value += ("Released: " + e.id + "\n"); });
                 buttons[e.id] = e;
             }
 
@@ -120,28 +122,28 @@
             const LINEAR_VEL = 3.0;
             const ANGULAR_VEL = THREE.Math.degToRad(60);
             function renderFrame() {
-                if (monster == null && heroData.isAlive()) {
+                if (monster == null && hero.isAlive()) {
                     const deltaTime = clock.getDelta();
-                    const collisionTargets = maze.getAroundCells(hero.position.x, hero.position.y, hero.position.z);
+                    const collisionTargets = maze.getAroundCells(heroObject.position.x, heroObject.position.y, heroObject.position.z);
                     // User code
                     let move = false;
                     if (arrows["up"].isPressed()) {
-                        if (mylib2020.checkCollision(hero, collisionTargets, mylib2020.FORWARD) == false) {
-                            hero.translateOnAxis(mylib2020.FORWARD, LINEAR_VEL * deltaTime);
+                        if (mylib2020.checkCollision(heroObject, collisionTargets, mylib2020.FORWARD) == false) {
+                            heroObject.translateOnAxis(mylib2020.FORWARD, LINEAR_VEL * deltaTime);
                             move = true;
                         }
                     }
                     if (arrows["down"].isPressed()) {
-                        if (mylib2020.checkCollision(hero, collisionTargets, mylib2020.BACK) == false) {
-                            hero.translateOnAxis(mylib2020.BACK, LINEAR_VEL * deltaTime);
+                        if (mylib2020.checkCollision(heroObject, collisionTargets, mylib2020.BACK) == false) {
+                            heroObject.translateOnAxis(mylib2020.BACK, LINEAR_VEL * deltaTime);
                             move = true;
                         }
                     }
                     if (arrows["left"].isPressed()) {
-                        hero.rotateY(+ANGULAR_VEL * deltaTime);
+                        heroObject.rotateY(+ANGULAR_VEL * deltaTime);
                     }
                     if (arrows["right"].isPressed()) {
-                        hero.rotateY(-ANGULAR_VEL * deltaTime);
+                        heroObject.rotateY(-ANGULAR_VEL * deltaTime);
                     }
                     // Check encount
                     const rand = Math.random();
@@ -149,20 +151,20 @@
                         monster = new MyGameCharacter("開発中", 30, 20, 4, 3, "../assets/downloads/red-dragon-1549047184nu3.png");
                         monster.wepon.name = "牙";
                         monster.loadImage(divGlView);
-                        divMessage.value += monster.name + "に遭遇した。\n";
+                        taMessage.value += monster.name + "に遭遇した。\n";
                     }
                 }
                 //
                 renderer.render(scene, camera);
                 requestAnimationFrame(renderFrame);
-                hero.userData.show(divStatus);
-                divDebugText.scrollTop = divDebugText.scrollHeight;
-                divMessage.scrollTop = divMessage.scrollHeight;
+                heroObject.userData.show(divStatus);
+                taDebugText.scrollTop = taDebugText.scrollHeight;
+                taMessage.scrollTop = taMessage.scrollHeight;
             }
             renderFrame();
 
             window.addEventListener('resize', function () {
-                divDebugText.value += ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
+                taDebugText.value += ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
                 const glViewSize = divGlView.getBoundingClientRect();
                 renderer.setSize(glViewSize.width, glViewSize.height);
                 camera.aspect = glViewSize.width / glViewSize.height;
@@ -172,18 +174,18 @@
             function onPressed(element) {
                 // Battle
                 const itemIndex = parseInt(element.value);
-                divDebugText.value += ("Item Index: " + itemIndex + "\n");
+                taDebugText.value += ("Item Index: " + itemIndex + "\n");
                 if (monster) {
-                    let result = heroData.attackTo(monster, heroData.items[itemIndex]);
-                    divMessage.value += result.message + "\n";
+                    let result = hero.attackTo(monster, hero.items[itemIndex]);
+                    taMessage.value += result.message + "\n";
                     if (monster.isAlive()) {
-                        result = monster.attackTo(heroData, monster.wepon);
-                        divMessage.value += result.message + "\n";
-                        if (heroData.isAlive() == false) {
-                            divMessage.value += heroData.name + "は力尽きた・・・。\n再読み込みしてください。";
+                        result = monster.attackTo(hero, monster.wepon);
+                        taMessage.value += result.message + "\n";
+                        if (hero.isAlive() == false) {
+                            taMessage.value += hero.name + "は力尽きた・・・。\n再読み込みしてください。";
                         }
                     } else {
-                        divMessage.value += monster.name + "を倒した。\n";
+                        taMessage.value += monster.name + "を倒した。\n";
                         monster.removeImage(divGlView);
                         monster = null;
                     }

@@ -1,26 +1,4 @@
 class MyGameItem {
-    constructor(name, targetParam, bonusValue, stock) {
-        this.name = name;
-        this.targetParam = targetParam;
-        this.bonusValue = bonusValue;
-        this.stock = stock;
-    }
-
-    checkCount() {
-        if (this.stock == null) {
-            return true;
-        }
-        return this.stock > 0;
-    }
-
-    use() {
-        if (this.stock) {
-            this.stock = Math.max(0, this.stock - 1);
-        }
-    }
-}
-
-class MyGameWepon {
     constructor(name, attackMin, attackMax, attackCount, stock) {
         this.name = name;
         this.attackMin = attackMin;
@@ -64,7 +42,7 @@ class MyGameCharacter {
         this.power = power;
         this.defense = defense;
         this.speed = speed;
-        this.wepon = new MyGameWepon("素手", 0, 5, 1, null);
+        this.wepon = new MyGameItem("素手", 0, 5, 1, null);
         this.items = [this.wepon];
         this.imageURL = imageURL;
         this.image = null;
