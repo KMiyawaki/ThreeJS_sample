@@ -108,11 +108,11 @@ mylib2020.initPushButton = function (element, activeColor, onPressed = null, onR
     }
 
 }
-mylib2020.arrowButton = class {
-    constructor(container, activeStyle = { backgroundColor: "red" }, normalStyle = { backgroundColor: "green" }, verbose = false) {
+mylib2020.ArrowButton = class {
+    constructor(container, activeImage, verbose = false) {
         this.container = container;
-        this.activeStyle = activeStyle;
-        this.normalStyle = normalStyle;
+        this.normalImage = this.container.style.backgroundImage;
+        this.activeImage = activeImage;
         this.supportTouch = 'ontouchend' in document;
         this.verbose = verbose;
         this.state = false;
@@ -135,14 +135,10 @@ mylib2020.arrowButton = class {
     }
 
     update() {
-        let target = null;
         if (this.isPressed()) {
-            target = this.activeStyle;
+            this.container.style.backgroundImage = this.activeImage;
         } else {
-            target = this.normalStyle;
-        }
-        for (let k in target) {
-            this.container.style[k] = target[k];
+            this.container.style.backgroundImage = this.normalImage;
         }
     }
 

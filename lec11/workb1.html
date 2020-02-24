@@ -20,14 +20,21 @@
             <textarea id="debugText" rows="8" cols="20" class="debugText">Debug output</textarea>
         </div>
         <div id="info" style="position: relative;height: 35%;background-color:coral;">
-            <div id="status" class="status" style="width: 20%;"></div>
-            <textarea id="message" class="message" style="left: 20%;width: 78%"></textarea>
+            <div id="status" class="status" style="width: 20%;">主人公ステータス</div>
+            <textarea id="message" class="message" style="left: 20%;width: 78%">メッセージウィンドウ</textarea>
         </div>
         <div id="controller" style="position: relative;height: 25%;background-color:chocolate">
-            <div id="up" class="arrowButton" style="top: 5%; left: 16%;"></div>
-            <div id="down" class="arrowButton" style="top: 65%; left: 16%;transform: rotate(180deg)"></div>
-            <div id="left" class="arrowButton" style="top: 35%; left: 3%;transform: rotate(-90deg)"></div>
-            <div id="right" class="arrowButton" style="top: 35%; left: 29%;transform: rotate(90deg)"></div>
+            <div id="up" class="arrowButton"
+                style="top: 5%; left: 16%; background-image:url(../assets/gray_arrow.png);"></div>
+            <div id="down" class="arrowButton"
+                style="top: 65%; left: 16%; background-image:url(../assets/gray_arrow.png); transform: rotate(180deg)">
+            </div>
+            <div id="left" class="arrowButton"
+                style="top: 35%; left: 3%; background-image:url(../assets/gray_arrow.png); transform: rotate(-90deg)">
+            </div>
+            <div id="right" class="arrowButton"
+                style="top: 35%; left: 29%; background-image:url(../assets/gray_arrow.png); transform: rotate(90deg)">
+            </div>
             <button id="sword" type="button" class="pushButton" style="width: 13%;top: 30%; right: 29%;" value="0">
                 <img src="../assets/downloads/sword_01.png" style="width: 100%;" />
             </button>
@@ -51,7 +58,7 @@
             taDebugText.value = ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
             const [scene, camera, renderer, clock, axes] = mylib2020.initThreeInElement(divGlView);
 
-            let plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0xCCFFCC }));
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0xCCFFCC }));
             plane.rotation.x = THREE.Math.degToRad(-90);
             plane.receiveShadow = true;
             scene.add(plane);
@@ -59,9 +66,9 @@
             const CUBE_SIZE = 3;
             const loader = new THREE.TextureLoader();
             const mapTexture = loader.load("../assets/downloads/ReflectingTheLava.png");
-            const normalTexture = loader.load("../assets/downloads/RockWall_orFloor_normal.png");
+            const bumpTexture = loader.load("../assets/downloads/RockWall_orFloor_height.png");
             const cubeGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-            const cubeMaterial = new THREE.MeshPhongMaterial({ map: mapTexture, normalMap: normalTexture, normalScale: new THREE.Vector2(1, -1) });
+            const cubeMaterial = new THREE.MeshPhongMaterial({ map: mapTexture, bumpMap: bumpTexture, bumplScale: 0.3 });
             const maze = new MyMaze(MyMazeTestData, 5, 5, cubeGeometry, cubeMaterial, CUBE_SIZE);
             maze.addToScene(scene);
 
@@ -73,7 +80,7 @@
             heroObject.add(camera);
             const spotLight = new THREE.SpotLight(0xFFFFFF, 1);
             spotLight.angle = THREE.Math.degToRad(34);
-            spotLight.penumbra = 0.5; 
+            spotLight.penumbra = 0.5;
             spotLight.position.copy(heroObject.position);
             spotLight.position.z -= 2;
             spotLight.castShadow = true;
@@ -83,10 +90,9 @@
             spotLight.target.position.z += 1;
             spotLight.target.position.y -= 1;
 
-            heroObject.position.set(-CUBE_SIZE, 1.6, -CUBE_SIZE);
-            heroObject.rotateY(THREE.Math.degToRad(180));
+            heroObject.position.set(CUBE_SIZE, 1.6, CUBE_SIZE);
 
-            const hero = new MyGameCharacter("主人公", 15, 5, 5, 5);
+            const hero = new MyGameCharacter("主人公", null, 15, 5, 5, 5);
             hero.wepon.name = "短剣";
             hero.items.push(new MyGameItem("火炎瓶", 5, 10, 3, 4));
             heroObject.userData = hero;
@@ -94,17 +100,9 @@
             // Setup GUI
             const arrows = {};
             const buttons = {};
-            const ARROW_ACTIVE_STYLE = {
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center center",
-                backgroundSize: "contain",
-                backgroundImage: "url(../assets/red_arrow.png)"
-            };
-            const ARROW_NORMAL_STYLE = { ...ARROW_ACTIVE_STYLE };
-            ARROW_NORMAL_STYLE.backgroundImage = "url(../assets/gray_arrow.png)";
             let elems = document.getElementsByClassName("arrowButton");
             for (let e of elems) {
-                arrows[e.id] = new mylib2020.arrowButton(e, ARROW_ACTIVE_STYLE, ARROW_NORMAL_STYLE);
+                arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
             }
             elems = document.getElementsByClassName("pushButton");
             for (let e of elems) {
@@ -117,7 +115,7 @@
             }
 
             let monster = null;
-            const ENCOUNT = 0.01;
+            const ENCOUNTER = 0.01;
             // Game Logic
             const LINEAR_VEL = 3.0;
             const ANGULAR_VEL = THREE.Math.degToRad(60);
@@ -145,19 +143,19 @@
                     if (arrows["right"].isPressed()) {
                         heroObject.rotateY(-ANGULAR_VEL * deltaTime);
                     }
-                    // Check encount
+                    // Check encounter
                     const rand = Math.random();
-                    if (rand < ENCOUNT && move) {
-                        monster = new MyGameCharacter("開発中", 30, 20, 4, 3, "../assets/downloads/red-dragon-1549047184nu3.png");
+                    if (rand < ENCOUNTER && move) {
+                        monster = new MyGameCharacter("開発中", "../assets/downloads/red-dragon-1549047184nu3.png", 30, 20, 4, 3);
                         monster.wepon.name = "牙";
-                        monster.loadImage(divGlView);
+                        monster.show(divGlView);
                         taMessage.value += monster.name + "に遭遇した。\n";
                     }
                 }
                 //
                 renderer.render(scene, camera);
                 requestAnimationFrame(renderFrame);
-                heroObject.userData.show(divStatus);
+                hero.print(divStatus);
                 taDebugText.scrollTop = taDebugText.scrollHeight;
                 taMessage.scrollTop = taMessage.scrollHeight;
             }
@@ -186,7 +184,7 @@
                         }
                     } else {
                         taMessage.value += monster.name + "を倒した。\n";
-                        monster.removeImage(divGlView);
+                        monster.remove(divGlView);
                         monster = null;
                     }
                 }

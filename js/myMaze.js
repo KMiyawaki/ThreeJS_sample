@@ -14,7 +14,7 @@ const MyMazeTestData = [
     1, 1, 1, 1, 1
 ];
 
-class MyMaze {
+class MyMaze{
     constructor(mapData, width, height, geometry, material, cubeSize) {
         this.mapData = mapData;
         this.width = width;
@@ -40,15 +40,15 @@ class MyMaze {
     }
 
     calcPositionFromIndex(ix, iy) {
-        const x = -this.cubeSize * ix;
+        const x = this.cubeSize * ix;
         const y = this.cubeSize / 2;
-        const z = -this.cubeSize * iy;
+        const z = this.cubeSize * iy;
         return { x: x, y: y, z: z };
     }
 
     calcIndexFromPosition(x, y, z) {
-        const ix = Math.floor(-x / this.cubeSize);
-        const iy = Math.floor(-z / this.cubeSize);
+        const ix = Math.floor(x / this.cubeSize);
+        const iy = Math.floor(z / this.cubeSize);
         return { ix: ix, iy: iy };
     }
 
@@ -74,7 +74,7 @@ class MyMaze {
         for (let iy = i.iy - Math.floor(ih / 2); iy < ih; iy++) {
             for (let ix = i.ix - Math.floor(iw / 2); ix < iw; ix++) {
                 const cell = this.getCellFromIndex(ix, iy);
-                if (cell) {
+                if(cell){
                     cells.push(cell);
                 }
             }
