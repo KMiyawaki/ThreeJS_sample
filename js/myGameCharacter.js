@@ -36,7 +36,7 @@ class MyGameItem {
 }
 
 class MyGameCharacter {
-    constructor(name, hp, power, defense, speed, imageURL = null) {
+    constructor(name, imageURL = null, hp = 1, power = 1, defense = 1, speed = 1) {
         this.name = name;
         this.hp = hp;
         this.power = power;
@@ -48,13 +48,13 @@ class MyGameCharacter {
         this.image = null;
     }
 
-    loadImage(targetElement) {
+    show(targetElement) {
         if (this.imageURL) {
             this.image = document.createElement("img");
             let obj = this;
             this.image.onload = function () {
                 obj.onLoad();
-                obj.showImage(targetElement);
+                obj.addImage(targetElement);
             }
             this.image.src = this.imageURL;
         }
@@ -68,7 +68,7 @@ class MyGameCharacter {
         this.image.style.height = "80%";
     }
 
-    showImage(targetElement) {
+    addImage(targetElement) {
         if (this.image) {
             targetElement.appendChild(this.image);
             const targetRect = targetElement.getBoundingClientRect();
@@ -80,7 +80,7 @@ class MyGameCharacter {
         }
     }
 
-    removeImage(targetElement) {
+    remove(targetElement) {
         if (this.image) {
             targetElement.removeChild(this.image);
         }
@@ -120,7 +120,7 @@ class MyGameCharacter {
         return { hitCount: hitCount, damage: damage, message: message };
     }
 
-    show(htmlElement) {
+    print(htmlElement) {
         htmlElement.innerHTML = "";
         htmlElement.innerHTML += ("<b>" + this.name + "</b><br />");
         htmlElement.innerHTML += ("体力:" + this.hp + "<br />");
