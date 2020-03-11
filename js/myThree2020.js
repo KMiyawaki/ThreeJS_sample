@@ -1,7 +1,24 @@
+/**
+ * @fileOverview Three.js で簡単なブラウザアプリを作るユーティリティ。
+ * @author K.Miyawaki
+ */
+
+/**
+ * 演習用関数群の名前空間
+ * @namespace
+ */
 var mylib2020 = mylib2020 || {};
 
+/**
+ * 物体前方を表すベクトル。
+ * @type {THREE.Vector3}
+ */
 mylib2020.FORWARD = new THREE.Vector3(0, 0, 1);
 
+/**
+ * 物体後方を表すベクトル。
+ * @type {THREE.Vector3}
+ */
 mylib2020.BACK = new THREE.Vector3(0, 0, -1);
 
 mylib2020.createRectSize = function (x, y, w, h) {
@@ -19,17 +36,42 @@ mylib2020.calcScreenSize = function (aspect, viewPortWidth, viewPortHeight) {
     return mylib2020.createRectSize(0, 0, w, h);
 }
 
+
+/**
+ * Three.js を初期化し、シーンを生成する。
+ * @param {number} width シーンの横画素数。
+ * @param {number} height シーンの縦画素数。
+ * @param {Object} opts 生成のオプション。次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+ * <ul>
+ *   <li>fov - number 画角。(デフォルト: 45.0)</li>
+ *   <li>near - number カメラのどのくらい近くから描画範囲に含めるか。(デフォルト: 0.1)</li>
+ *   <li>far - number カメラのどのくらい遠くまで描画範囲に含めるか。(デフォルト: 1000)</li>
+ *   <li>axesLength - number シーンに表示するワールド座標軸の長さ。(デフォルト: 20)</li>
+ *   <li>clearColor - number シーンの何もない領域を塗りつぶす色。(デフォルト: 0x222222)</li>
+ *   <li>camPosX - number カメラの初期位置。(デフォルト: 0)</li>
+ *   <li>camPosY - number カメラの初期位置。(デフォルト: 2)</li>
+ *   <li>camPosZ - number カメラの初期位置。(デフォルト: -7)</li>
+ * </ul>
+ * @returns {Array} 次の要素が入った配列。
+ * <ul>
+ *   <li>THREE.Scene</li>
+ *   <li>THREE.PerspectiveCamera</li>
+ *   <li>THREE.WebGLRenderer</li>
+ *   <li>THREE.Clock</li>
+ *   <li>THREE.AxesHelper (opts.axesLength が 0 以下の場合は生成されず、 null が帰る)</li>
+ * </ul>
+ */
 mylib2020.initThree = function (width, height, opts) {
-    var opts = opts || {};
+    opts = opts || {};
     const aspect = width / height;
-    const fov = opts.fov || 45.0;
-    const near = opts.near || 0.1;
-    const far = opts.far || 1000;
-    const axesLength = opts.axesLength || 20;
-    const clearColor = opts.clearColor || 0x222222;
-    const camPosX = opts.camPosX || 0;
-    const camPosY = opts.camPosY || 2;
-    const camPosZ = opts.camPosZ || -7;
+    const fov = ('fov' in opts) ? opts.fov : 45.0;
+    const near = ('near' in opts) ? opts.near : 0.1;
+    const far = ('far' in opts) ? opts.far : 1000;
+    const axesLength = ('axesLength' in opts) ? opts.axesLength : 20;
+    const clearColor = ('clearColor' in opts) ? opts.clearColor : 0x222222;
+    const camPosX = ('camPosX' in opts) ? opts.camPosX : 0;
+    const camPosY = ('camPosY' in opts) ? opts.camPosY : 2;
+    const camPosZ = ('camPosZ' in opts) ? opts.camPosZ : -7;
 
     let scene = new THREE.Scene();
     let camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
@@ -50,6 +92,29 @@ mylib2020.initThree = function (width, height, opts) {
     return [scene, camera, renderer, clock, axes];
 }
 
+/**
+ * Three.js を初期化し、シーンを生成する。
+ * @param {HTMLElement} element シーンの親となる HTML 要素。
+ * @param {Object} opts 生成のオプション。次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+ * <ul>
+ *   <li>fov - number 画角。(デフォルト: 45.0)</li>
+ *   <li>near - number カメラのどのくらい近くから描画範囲に含めるか。(デフォルト: 0.1)</li>
+ *   <li>far - number カメラのどのくらい遠くまで描画範囲に含めるか。(デフォルト: 1000)</li>
+ *   <li>axesLength - number シーンに表示するワールド座標軸の長さ。(デフォルト: 20)</li>
+ *   <li>clearColor - number シーンの何もない領域を塗りつぶす色。(デフォルト: 0x222222)</li>
+ *   <li>camPosX - number カメラの初期位置。(デフォルト: 0)</li>
+ *   <li>camPosY - number カメラの初期位置。(デフォルト: 2)</li>
+ *   <li>camPosZ - number カメラの初期位置。(デフォルト: -7)</li>
+ * </ul>
+ * @returns {Array} 次の要素が入った配列。
+ * <ul>
+ *   <li>THREE.Scene</li>
+ *   <li>THREE.PerspectiveCamera</li>
+ *   <li>THREE.WebGLRenderer</li>
+ *   <li>THREE.Clock</li>
+ *   <li>THREE.AxesHelper (opts.axesLength が 0 以下の場合は生成されず、 null が帰る)</li>
+ * </ul>
+ */
 mylib2020.initThreeInElement = function (element, opts) {
     const rect = element.getBoundingClientRect();
     let [scene, camera, renderer, clock, axes] = mylib2020.initThree(rect.width, rect.height, opts);
@@ -57,7 +122,7 @@ mylib2020.initThreeInElement = function (element, opts) {
     return [scene, camera, renderer, clock, axes];
 }
 
-mylib2020.checkCollision = function(fromObject, targetMeshes, direction, distance = 1.5) {
+mylib2020.checkCollision = function (fromObject, targetMeshes, direction, distance = 1.5) {
     const v = direction.clone();
     v.applyEuler(fromObject.rotation);
     const ray = new THREE.Raycaster(fromObject.position, v);
@@ -108,7 +173,17 @@ mylib2020.initPushButton = function (element, activeColor, onPressed = null, onR
     }
 
 }
+
+/**
+ * キャラクタ操作用のデジタルな十字キーのボタンを生成する。
+ */
 mylib2020.ArrowButton = class {
+    /**
+     * @constructor
+     * @param {HTMLElement} container ボタンにしたい HTML 要素。
+     * @param {string} activeImage ボタンが押された場合に表示する画像 URL。 
+     * @param {boolean} verbose デバッグメッセージを console.log で表示するか否か。 
+     */
     constructor(container, activeImage, verbose = false) {
         this.container = container;
         this.normalImage = this.container.style.backgroundImage;
@@ -130,6 +205,10 @@ mylib2020.ArrowButton = class {
         this.update();
     }
 
+    /**
+     * ボタンが押されているか否か。
+     * @returns {boolean} true: 押されている。 false: 押されていない。
+     */
     isPressed() {
         return this.state;
     }

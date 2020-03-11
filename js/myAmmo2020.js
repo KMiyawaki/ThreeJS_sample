@@ -1,7 +1,23 @@
+/**
+ * @fileOverview Ammo のラッパー。
+ * @author K.Miyawaki
+ */
+
 var mylib2020 = mylib2020 || {};
 
-mylib2020.tmpTrans = null;
-
+/**
+ * Ammo の初期化。
+ *
+ * @param {THREE.Vector3} gravity 重力の方向。
+ * @returns {Array} 以下のオブジェクトが順番に入った配列。
+ * <ul>
+ *  <li>Ammo.btDiscreteDynamicsWorld</li>
+ *  <li>Ammo.btCollisionDispatcher</li>
+ *  <li>Ammo.btDbvtBroadphase</li>
+ *  <li>Ammo.btSequentialImpulseConstraintSolver</li>
+ *  <li>Ammo.btDefaultCollisionConfiguration</li>
+ * </ul>
+ */
 mylib2020.initAmmo = function (gravity) {
     const collisionConfiguration = new Ammo.btDefaultCollisionConfiguration();
     const dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration);
@@ -19,280 +35,690 @@ mylib2020.initAmmo = function (gravity) {
     return [world, dispatcher, overlappingPairCache, solver, collisionConfiguration];
 }
 
-mylib2020.createAmmoRigidBody = function (pos, quat, colShape, params = null) {
-    params = params || {};
-    const mass = ('mass' in params) ? params.mass : 1;
-    const friction = ('friction' in params) ? params.friction : 0.5;
-    const rollingFriction = ('rollingFriction' in params) ? params.friction : 0.1;
-    const restitution = ('restitution' in params) ? params.restitution : 0;
-    const margin = ('margin' in params) ? params.margin : 0.01;
-
-    const position = new Ammo.btVector3(pos.x, pos.y, pos.z);
-    const rotation = new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w);
-    const transform = new Ammo.btTransform();
-    const localInertia = new Ammo.btVector3(0, 0, 0);
-
-    transform.setIdentity();
-    transform.setOrigin(position);
-    transform.setRotation(rotation);
-    const motionState = new Ammo.btDefaultMotionState(transform);
-
-    colShape.setMargin(margin);
-    colShape.calculateLocalInertia(mass, localInertia);
-    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, colShape, localInertia);
-    const rigidBody = new Ammo.btRigidBody(rbInfo);
-    rigidBody.setRollingFriction(rollingFriction);
-    rigidBody.setFriction(friction);
-    rigidBody.setRestitution(restitution);
-
-    Ammo.destroy(position);
-    Ammo.destroy(rotation);
-    Ammo.destroy(transform);
-    Ammo.destroy(localInertia);
-    Ammo.destroy(rbInfo);
-    return rigidBody;
-}
-
-mylib2020.destroyAmmoRigidBody = function (rigidBody) {
-    if (rigidBody.threeObject) {
-        delete rigidBody.threeObject;
+/**
+ * Ammo の衝突検出形状や剛体を生成する。
+ */
+mylib2020.AmmoCollisionBuilder = class {
+    constructor() {
+        this.position = new Ammo.btVector3();
+        this.rotation = new Ammo.btQuaternion();
+        this.transform = new Ammo.btTransform();
+        this.localInertia = new Ammo.btVector3();
+        this.size = new Ammo.btVector3();
+        this.scale = new Ammo.btVector3();
+        this.factor = new Ammo.btVector3();
+        this.vertex = new Ammo.btVector3();
+        this.minLength = 0.01;
+        this.collisionShapeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
     }
-    Ammo.destroy(rigidBody.getCollisionShape());
-    Ammo.destroy(rigidBody.getMotionState());
-    Ammo.destroy(rigidBody);
-}
-
-mylib2020.removeAmmoRigidBody = function (threeObject) {
-    if (threeObject.userData.rigidBody) {
-        mylib2020.destroyAmmoRigidBody(threeObject.userData.rigidBody);
-        delete threeObject.userData.rigidBody;
+    /**
+     * 頂点を包む凸包の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * @param {THREE.Mesh} threeObject Three.js の物体。
+     * @param {Array<THREE.Vector3>} vertices 物体の頂点配列。
+     * @param {THREE.Vector3} scale 検出範囲の拡大縮小率。
+     * @returns {Ammo.btConvexHullShape}
+     */
+    addConvexHullShape(threeObject, vertices, scale) {
+        const shape = new Ammo.btConvexHullShape();
+        for (let v of vertices) {
+            this.vertex.setValue(v.x, v.y, v.z);
+            shape.addPoint(this.vertex);
+        }
+        this.scale.setValue(scale.x, scale.y, scale.z);
+        shape.setLocalScaling(this.scale);
+        mylib2020.addAmmoShape(threeObject, shape);
+        return shape;
     }
-}
 
-mylib2020.createAmmoConvexHull = function (vertices, position, quaternion, scale, params = null) {
-    const colShape = new Ammo.btConvexHullShape();
-    const tmp = new Ammo.btVector3();
-    for (let v of vertices) {
-        tmp.setValue(v.x, v.y, v.z);
-        colShape.addPoint(tmp);
+    /**
+     * threeObject と同じ大きさの平面の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * @param {THREE.Mesh} threeObject Three.js の物体。THREE.PlaneGeometry を持つ必要がある。
+     * @returns {Ammo.btConvexHullShape}
+     */
+    addPlaneShape(threeObject) {
+        const geometryParams = threeObject.geometry.parameters;
+        const w2 = geometryParams.width / 2; // X
+        const h2 = geometryParams.height / 2; // Y
+        const vertices = [
+            new THREE.Vector3(-w2, -h2, 0),
+            new THREE.Vector3(w2, -h2, 0),
+            new THREE.Vector3(w2, h2, 0),
+            new THREE.Vector3(-w2, h2, 0)
+        ];
+        return this.addConvexHullShape(threeObject, vertices, threeObject.scale);
     }
-    const btScale = new Ammo.btVector3(scale.x, scale.y, scale.z);
-    colShape.setLocalScaling(btScale);
-    const rigidBody = mylib2020.createAmmoRigidBody(position, quaternion, colShape, params);
 
-    Ammo.destroy(tmp);
-    Ammo.destroy(btScale);
-    return rigidBody;
-}
+    /**
+     * threeObject と同じ大きさの直方体の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * @param {THREE.Mesh} threeObject Three.js の物体。THREE.BoxGeometry を持つ必要がある。
+     * @returns {Ammo.btBoxShape}
+     */
+    addBoxShape(threeObject) {
+        threeObject.geometry.computeBoundingBox();
+        const bbox = threeObject.geometry.boundingBox;
+        const x = Math.max(this.minLength, Math.abs(bbox.max.x - bbox.min.x));
+        const y = Math.max(this.minLength, Math.abs(bbox.max.y - bbox.min.y));
+        const z = Math.max(this.minLength, Math.abs(bbox.max.z - bbox.min.z));
+        this.size.setValue(x * 0.5, y * 0.5, z * 0.5);
+        this.scale.setValue(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
+        const shape = new Ammo.btBoxShape(this.size);
+        shape.setLocalScaling(this.scale);
+        mylib2020.addAmmoShape(threeObject, shape);
+        return shape;
+    }
 
-mylib2020.createAmmoPlane = function (threeObject, params = null) {
-    const geometryParams = threeObject.geometry.parameters;
-    const w2 = geometryParams.width / 2; // X
-    const h2 = geometryParams.height / 2; // Y
-    const vertices = [
-        new THREE.Vector3(-w2, -h2, 0),
-        new THREE.Vector3(w2, -h2, 0),
-        new THREE.Vector3(w2, h2, 0),
-        new THREE.Vector3(-w2, h2, 0)
-    ];
-    return mylib2020.createAmmoConvexHull(vertices, threeObject.position,
-        threeObject.quaternion, threeObject.scale, params);
-}
+    /**
+     * threeObject と同じ大きさの球体の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * @param {THREE.Mesh} threeObject Three.js の物体。THREE.SphereGeometry を持つ必要がある。
+     * @returns {Ammo.btMultiSphereShape}
+     */
+    addSphereShape(threeObject) {
+        threeObject.geometry.computeBoundingSphere();
+        const sphere = threeObject.geometry.boundingSphere;
+        this.position.setValue(0, 0, 0);
+        this.scale.setValue(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
+        const shape = new Ammo.btMultiSphereShape([this.position], [sphere.radius], 1);
+        shape.setLocalScaling(this.scale);
+        mylib2020.addAmmoShape(threeObject, shape);
+        return shape;
+    }
 
-mylib2020.createAmmoBox = function (threeObject, params = null) {
-    params = params || {};
-    const minLength = ('minLength' in params) ? params.minLength : 0.01;
+    /**
+     * threeObject と同じ大きさの円柱の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * <b>※真円かつ、底面と上面が同じ大きさの円柱しか対応していない。つまり、 x, y の scale が等しい必要がある。</b>
+     * @param {THREE.Mesh} threeObject Three.js の物体。THREE.CylinderGeometry を持つ必要がある。
+     * @returns {Ammo.btCylinderShape}
+     */
+    addCylinderShape(threeObject) {
+        threeObject.geometry.computeBoundingBox();
+        const bbox = threeObject.geometry.boundingBox;
+        const x = Math.max(this.minLength, Math.abs(bbox.max.x - bbox.min.x));
+        const y = Math.max(this.minLength, Math.abs(bbox.max.y - bbox.min.y)); // Height
+        const z = Math.max(this.minLength, Math.abs(bbox.max.z - bbox.min.z));
+        const radius = Math.max(x, z) / 2;
+        this.size.setValue(radius, y * 0.5, radius);
+        this.scale.setValue(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
+        const shape = new Ammo.btCylinderShape(this.size);
+        shape.setLocalScaling(this.scale);
+        mylib2020.addAmmoShape(threeObject, shape);
+        return shape;
+    }
 
-    threeObject.geometry.computeBoundingBox();
-    const bbox = threeObject.geometry.boundingBox;
-    const x = Math.max(minLength, Math.abs(bbox.max.x - bbox.min.x));
-    const y = Math.max(minLength, Math.abs(bbox.max.y - bbox.min.y));
-    const z = Math.max(minLength, Math.abs(bbox.max.z - bbox.min.z));
-    const size = new Ammo.btVector3(x * 0.5, y * 0.5, z * 0.5);
-    const scale = new Ammo.btVector3(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
-    const colShape = new Ammo.btBoxShape(size);
-    colShape.setLocalScaling(scale);
+    /**
+     * threeObject と同じ大きさの円錐の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * <b>※底面が真円の円錐しか対応していない。つまり、 x, y の scale が等しい必要がある。</b>
+     * @param {THREE.Mesh} threeObject Three.js の物体。THREE.ConeGeometry を持つ必要がある。
+     * @returns {Ammo.btConeShape}
+     */
+    addConeShape(threeObject) {
+        const geometryParams = threeObject.geometry.parameters;
+        const radius = geometryParams.radius;
+        const height = geometryParams.height;
+        const shape = new Ammo.btConeShape(radius, height);
+        this.scale.setValue(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
+        shape.setLocalScaling(this.scale);
+        mylib2020.addAmmoShape(threeObject, shape);
+        return shape;
+    }
 
-    const rigidBody = mylib2020.createAmmoRigidBody(threeObject.position, threeObject.quaternion, colShape, params);
-
-    Ammo.destroy(size);
-    Ammo.destroy(scale);
-    return rigidBody;
-}
-
-mylib2020.createAmmoSphere = function (threeObject, params = null) {
-    threeObject.geometry.computeBoundingSphere();
-    const sphere  = threeObject.geometry.boundingSphere;
-    const radius = sphere.radius;
-    const position = new Ammo.btVector3(0, 0, 0);
-    const scale = new Ammo.btVector3(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
-    const colShape = new Ammo.btMultiSphereShape([position], [radius], 1);
-    colShape.setLocalScaling(scale);
-
-    rigidBody = mylib2020.createAmmoRigidBody(threeObject.position, threeObject.quaternion, colShape, params);
-
-    Ammo.destroy(scale);
-    Ammo.destroy(position);
-    return rigidBody;
-}
-
-mylib2020.createAmmoCylinder = function (threeObject, params = null) {
-    params = params || {};
-    const minLength = ('minLength' in params) ? params.minLength : 0.01;
-    threeObject.geometry.computeBoundingBox();
-    const bbox = threeObject.geometry.boundingBox;
-    const x = Math.max(minLength, Math.abs(bbox.max.x - bbox.min.x));
-    const height = Math.max(minLength, Math.abs(bbox.max.y - bbox.min.y));
-    const z = Math.max(minLength, Math.abs(bbox.max.z - bbox.min.z));
-
-    const radius = Math.max(x, z);
-    const size = new Ammo.btVector3(radius, height * 0.5, radius);
-    const scale = new Ammo.btVector3(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
-    const colShape = new Ammo.btCylinderShape(size);
-    colShape.setLocalScaling(scale);
-
-    rigidBody = mylib2020.createAmmoRigidBody(threeObject.position, threeObject.quaternion, colShape, params);
-
-    Ammo.destroy(size);
-    Ammo.destroy(scale);
-    return rigidBody;
-}
+    /**
+     * threeObject を包むような直方体の大きさとローカル中心座標を計算する。
+     * @param {THREE.Object3D} threeObject Three.js の物体。
+     * @param {THREE.Vector3} scale 直方体の拡大縮小率。
+     * @param {THREE.Vector3} offset 直方体の中心に加算する値。
+     * @returns {Object} 
+     * <ul>
+     *   <li>size - 大きさ {x, y, z}</li>
+     *   <li>center - THREE.Vector3</li>
+     * </ul>
+     */
+    calcBoundingBox(threeObject, scale, offset) {
+        const bbox = new THREE.Box3();
+        const center = new THREE.Vector3();
+        bbox.setFromObject(threeObject);
+        bbox.getCenter(center);
+        threeObject.worldToLocal(center);
+        const x = Math.max(this.minLength, Math.abs(bbox.max.x - bbox.min.x)) * scale.x;
+        const y = Math.max(this.minLength, Math.abs(bbox.max.y - bbox.min.y)) * scale.y;
+        const z = Math.max(this.minLength, Math.abs(bbox.max.z - bbox.min.z)) * scale.z;
+        center.add(offset);
+        return { size: { x, y, z }, center: center };
+    }
 
 
-mylib2020.createAmmoCone = function (threeObject, params = null) {
-    const geometryParams = threeObject.geometry.parameters;
-    const radius = geometryParams.radius;
-    const height = geometryParams.height;
-    const scale = new Ammo.btVector3(threeObject.scale.x, threeObject.scale.y, threeObject.scale.z);
-    const colShape = new Ammo.btConeShape(radius, height);
-    colShape.setLocalScaling(scale);
+    /**
+     * threeObject を包むような円柱の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。<br/>
+     * <b>※真円かつ、底面と上面が同じ大きさの円柱しか生成しない。</b>
+     * @param {THREE.Object3D} threeObject Three.js の物体。
+     * @param {Object} params 次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+     * <ul>
+     *   <li>showCollision - boolean 衝突検知範囲を可視化するか (デフォルト: false)</li>
+     *   <li>axis - string 円柱の中心軸 "x", "y", "z" のいずれか (デフォルト: y)</li>
+     *   <li>scale - THREE.Vector3 衝突検知範囲の拡大縮小率 (デフォルト: x, y, z 全て 1.0)</li>
+     *   <li>offset - THREE.Vector3 衝突検知範囲の中心からのオフセット (デフォルト: x, y, z 全て 0.0)</li>
+     * </ul>
+     * @returns {Ammo.btCompoundShape}
+     */
+    addBoundingCylinderShape(threeObject, params = null) {
+        params = params || {};
+        const showCollision = ('showCollision' in params) ? params.showCollision : false;
+        const axis = ('axis' in params) ? params.axis.toLowerCase() : "y";
+        if (axis != "x" && axis != "y" && axis != "z") {
+            axis = "y";
+        }
+        const scale = ('scale' in params) ? params.scale : new THREE.Vector3(1, 1, 1);
+        const offset = ('offset' in params) ? params.offset : new THREE.Vector3(0, 0, 0);
 
-    rigidBody = mylib2020.createAmmoRigidBody(threeObject.position, threeObject.quaternion, colShape, params);
+        let radius = 0;
+        let height = 0;
+        let rotation = new THREE.Vector3();
+        const bbox = this.calcBoundingBox(threeObject, scale, offset);
+        if (axis == "x") {
+            height = bbox.size.x;
+            radius = Math.max(bbox.size.y, bbox.size.z) / 2;
+            rotation.z = THREE.Math.degToRad(90);
+        } else if (axis == "y") {
+            height = bbox.size.y;
+            radius = Math.max(bbox.size.x, bbox.size.z) / 2;
+        } else if (axis == "z") {
+            height = bbox.size.z;
+            radius = Math.max(bbox.size.x, bbox.size.y) / 2;
+            rotation.x = THREE.Math.degToRad(90);
+        }
 
-    Ammo.destroy(scale);
-    return rigidBody;
+        const geom = new THREE.CylinderGeometry(radius, radius, height, 8);
+        const childMesh = new THREE.Mesh(geom, this.collisionShapeMaterial.clone());
+        if (showCollision == false) {
+            childMesh.material.transparent = true;
+            childMesh.material.opacity = 0.0;
+        }
+        childMesh.name = threeObject.name + "_BCYLINDER";
+        childMesh.rotation.set(rotation.x, rotation.y, rotation.z);
+        childMesh.position.set(bbox.center.x, bbox.center.y, bbox.center.z);
+        this.addCylinderShape(childMesh);
+        threeObject.add(childMesh);
+        return this.addCompoundShape(threeObject);
+    }
+
+    /**
+     * threeObject を包むような球体の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。
+     * @param {THREE.Object3D} threeObject Three.js の物体。
+     * @param {Object} params 次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+     * <ul>
+     *   <li>showCollision - boolean 衝突検知範囲を可視化するか (デフォルト: false)</li>
+     *   <li>scale - THREE.Vector3 衝突検知範囲の拡大縮小率 (デフォルト: x, y, z 全て 1.0)</li>
+     *   <li>offset - THREE.Vector3 衝突検知範囲の中心からのオフセット (デフォルト: x, y, z 全て 0.0)</li>
+     * </ul>
+     * @returns {Ammo.btCompoundShape}
+     */
+    addBoundingSphereShape(threeObject, params = null) {
+        params = params || {};
+        const showCollision = ('showCollision' in params) ? params.showCollision : false;
+        const scale = ('scale' in params) ? params.scale : new THREE.Vector3(1, 1, 1);
+        const offset = ('offset' in params) ? params.offset : new THREE.Vector3(0, 0, 0);
+
+        const bbox = this.calcBoundingBox(threeObject, scale, offset);
+        const geom = new THREE.SphereGeometry(0.5, 8, 8);
+        const childMesh = new THREE.Mesh(geom, this.collisionShapeMaterial.clone());
+        if (showCollision == false) {
+            childMesh.material.transparent = true;
+            childMesh.material.opacity = 0.0;
+        }
+        childMesh.scale.set(bbox.size.x, bbox.size.y, bbox.size.z);
+        childMesh.name = threeObject.name + "_BSPHERE";
+        childMesh.position.set(bbox.center.x, bbox.center.y, bbox.center.z);
+        this.addSphereShape(childMesh);
+        threeObject.add(childMesh);
+        return this.addCompoundShape(threeObject);
+    }
+
+    /**
+     * threeObject を包むような直方体の衝突検出範囲を生成し threeObject.userData.collisionShape に代入する。
+     * @param {THREE.Object3D} threeObject Three.js の物体。
+     * @param {Object} params 次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+     * <ul>
+     *   <li>showCollision - boolean 衝突検知範囲を可視化するか (デフォルト: false)</li>
+     *   <li>scale - THREE.Vector3 衝突検知範囲の拡大縮小率 (デフォルト: x, y, z 全て 1.0)</li>
+     *   <li>offset - THREE.Vector3 衝突検知範囲の中心からのオフセット (デフォルト: x, y, z 全て 0.0)</li>
+     * </ul>
+     * @returns {Ammo.btCompoundShape}
+     */
+    addBoundingBoxShape(threeObject, params = null) {
+        params = params || {};
+        const showCollision = ('showCollision' in params) ? params.showCollision : false;
+        const scale = ('scale' in params) ? params.scale : new THREE.Vector3(1, 1, 1);
+        const offset = ('offset' in params) ? params.offset : new THREE.Vector3(0, 0, 0);
+
+        const bbox = this.calcBoundingBox(threeObject, scale, offset);
+        const geom = new THREE.BoxGeometry(bbox.size.x, bbox.size.y, bbox.size.z);
+        const childMesh = new THREE.Mesh(geom, this.collisionShapeMaterial.clone());
+        if (showCollision == false) {
+            childMesh.material.transparent = true;
+            childMesh.material.opacity = 0.0;
+        }
+        childMesh.name = threeObject.name + "_BBOX";
+        childMesh.position.set(bbox.center.x, bbox.center.y, bbox.center.z);
+        this.addBoxShape(childMesh);
+        threeObject.add(childMesh);
+        return this.addCompoundShape(threeObject);
+    }
+
+    /**
+     * 子を持つ threeObject に対し全ての子が持つ衝突検出範囲を結合して threeObject.userData.collisionShape に代入する。<br/>
+     * threeObject 自身かその子が threeObject.userData.collisionShape に衝突検出範囲を持っていなければ意味がない。
+     * @param {THREE.Object3D} threeObject 子を持つ Three.js の物体。
+     * @returns {Ammo.btCompoundShape}
+     */
+    addCompoundShape(threeObject) {
+        const shape = new Ammo.btCompoundShape();
+        if (threeObject.userData.collisionShape) {
+            threeObject.userData.collisionShapeOrg = threeObject.userData.collisionShape;
+            this.transform.setIdentity();
+            shape.addChildShape(this.transform, threeObject.userData.collisionShapeOrg);
+        }
+        threeObject.userData.collisionShape = shape;
+        for (let child of threeObject.children) {
+            const childShape = this.addCompoundShape(child);
+            this.position.setValue(child.position.x, child.position.y, child.position.z);
+            this.rotation.setValue(child.quaternion.x, child.quaternion.y, child.quaternion.z, child.quaternion.w);
+            this.transform.setIdentity();
+            this.transform.setOrigin(this.position);
+            this.transform.setRotation(this.rotation);
+            shape.addChildShape(this.transform, childShape);
+        }
+        return shape;
+    }
+
+    /**
+     * threeObject.userData.collisionShape に衝突検出範囲を持つ threeObject に対し剛体（形状が変化しない物体）を生成して threeObject.userData.rigidBody に代入する。<br/>
+     * threeObject が threeObject.userData.collisionShape に衝突検出範囲を持っていなければ何もしない。
+     * @param {THREE.Object3D} threeObject Three.js の物体。
+     * @param {Object} params 次のようなキーでパラメータ指定する。null のとき、デフォルト値が使用される。
+     * <ul>
+     *   <li>movable - boolean ユーザが動かす予定がある物体は true にする。(デフォルト: false)</li>
+     *   <li>mass - number 重さ。単位は Kg (デフォルト: 1)</li>
+     *   <li>friction - number 面で接触する物体に対する摩擦。(デフォルト: 0.5)</li>
+     *   <li>rollingFriction - number 線や点で接触する、転がる物体に対する摩擦。(デフォルト: 0.1)</li>
+     *   <li>restitution - number 反発の程度。(デフォルト: 0)</li>
+     *   <li>freezeRotationX - boolean X 軸中心の回転をさせないかどうか。(デフォルト: false)</li>
+     *   <li>freezeRotationY - boolean Y 軸中心の回転をさせないかどうか。(デフォルト: false)</li>
+     *   <li>linearDamping - number 移動に対する空気抵抗。大きいほど減速しやすい。(デフォルト: 0)</li>
+     *   <li>angularDamping - number 回転に対する空気抵抗。大きいほど回転が止まりやすい。(デフォルト: 0)</li>
+     *   <li>margin - number 衝突検出範囲に余裕を持たせる場合の距離。(デフォルト: 0.01)</li>
+     * </ul>
+     */
+    addRigidBody(threeObject, params = null) {
+        if (threeObject.userData.collisionShape) {
+            const rigidBody = this.rigidBody(threeObject.position, threeObject.quaternion, threeObject.userData.collisionShape, params);
+            mylib2020.addAmmoRigidBody(threeObject, rigidBody);
+            this.checkMovable(threeObject, params);
+        }
+    }
+
+    checkMovable(threeObject, params = null) {
+        params = params || {};
+        threeObject.userData.movable = ('movable' in params) ? params.movable : false;
+        if (threeObject.userData.movable) {
+            threeObject.userData.linearVelocity = 0;
+            threeObject.userData.angularVelocity = 0;
+        }
+    }
+
+    rigidBody(pos, quat, shape, params = null) {
+        params = params || {};
+        const mass = ('mass' in params) ? params.mass : 1;
+        const friction = ('friction' in params) ? params.friction : 0.5;
+        const rollingFriction = ('rollingFriction' in params) ? params.friction : 0.1;
+        const restitution = ('restitution' in params) ? params.restitution : 0;
+        const kinematic = ('kinematic' in params) ? params.kinematic : false;
+        const freezeRotationX = ('freezeRotationX' in params) ? params.freezeRotationX : false;
+        const freezeRotationY = ('freezeRotationY' in params) ? params.freezeRotationY : false;
+        const freezeRotationZ = ('freezeRotationZ' in params) ? params.freezeRotationZ : false;
+        const linearDamping = ('linearDamping' in params) ? params.linearDamping : 0;
+        const angularDamping = ('angularDamping' in params) ? params.angularDamping : 0;
+
+        const margin = ('margin' in params) ? params.margin : 0.01;
+        shape.setMargin(margin);
+        this.localInertia.setValue(0, 0, 0);
+        shape.calculateLocalInertia(mass, this.localInertia);
+
+        this.position.setValue(pos.x, pos.y, pos.z);
+        this.rotation.setValue(quat.x, quat.y, quat.z, quat.w);
+        this.transform.setIdentity();
+        this.transform.setOrigin(this.position);
+        this.transform.setRotation(this.rotation);
+        const motionState = new Ammo.btDefaultMotionState(this.transform);
+        const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, this.localInertia);
+        const rigidBody = new Ammo.btRigidBody(rbInfo);
+        rigidBody.setRollingFriction(rollingFriction);
+        rigidBody.setFriction(friction);
+        rigidBody.setRestitution(restitution);
+        rigidBody.setDamping(linearDamping, angularDamping);
+        if (kinematic) {
+            rigidBody.setActivationState(Ammo.DISABLE_DEACTIVATION);
+            rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() | Ammo.CF_KINEMATIC_OBJECT);
+        }
+        if (freezeRotationX || freezeRotationY || freezeRotationZ) {
+            this.factor.setValue(1, 1, 1);
+            if (freezeRotationX) {
+                this.factor.setX(0);
+            }
+            if (freezeRotationY) {
+                this.factor.setY(0);
+            }
+            if (freezeRotationZ) {
+                this.factor.setZ(0);
+            }
+            rigidBody.setAngularFactor(this.factor);
+        }
+        Ammo.destroy(rbInfo);
+        return rigidBody;
+    }
+
+    destroy() {
+        Ammo.destroy(this.position);
+        Ammo.destroy(this.rotation);
+        Ammo.destroy(this.transform);
+        Ammo.destroy(this.localInertia);
+        Ammo.destroy(this.size);
+        Ammo.destroy(this.scale);
+        Ammo.destroy(this.factor);
+        Ammo.destroy(this.vertex);
+    }
 }
 
 mylib2020.addAmmoRigidBody = function (threeObject, rigidBody) {
+    mylib2020.removeAmmoRigidBody(threeObject);
     threeObject.userData.rigidBody = rigidBody;
     rigidBody.threeObject = threeObject;
 }
 
-mylib2020.applyAmmo = function (threeObject, rigidBody) {
-    if (!mylib2020.tmpTrans) {
-        mylib2020.tmpTrans = new Ammo.btTransform();
+mylib2020.removeAmmoRigidBody = function (threeObject) {
+    if (threeObject.userData.rigidBody) {
+        if (threeObject.userData.rigidBody.threeObject) {
+            delete threeObject.userData.rigidBody.threeObject;
+        }
+        Ammo.destroy(threeObject.userData.rigidBody.getMotionState());
+        Ammo.destroy(threeObject.userData.rigidBody);
+        delete threeObject.userData.rigidBody;
     }
-    const tmpTrans = mylib2020.tmpTrans;
-    rigidBody.getMotionState().getWorldTransform(tmpTrans);
-    const p = tmpTrans.getOrigin();
-    const q = tmpTrans.getRotation();
+}
+
+mylib2020.addAmmoShape = function (threeObject, shape) {
+    mylib2020.removeAmmoShape(threeObject);
+    threeObject.userData.collisionShape = shape;
+}
+
+mylib2020.removeAmmoShapeRecursive = function (threeObject) {
+    mylib2020.removeAmmoShape(threeObject);
+    for (let child of threeObject.children) {
+        mylib2020.removeAmmoShapeRecursive(child);
+    }
+}
+
+mylib2020.removeAmmoShape = function (threeObject) {
+    if (threeObject.userData.collisionShape) {
+        Ammo.destroy(threeObject.userData.collisionShape);
+        delete threeObject.userData.collisionShape;
+    }
+    if (threeObject.userData.collisionShapeOrg) {
+        Ammo.destroy(threeObject.userData.collisionShapeOrg);
+        delete threeObject.userData.collisionShapeOrg;
+    }
+}
+
+mylib2020.addImpulse = function (rigidBody, impulse = new THREE.Vector3(0, 0, 0)) {
+    const imp = new Ammo.btVector3(impulse.x, impulse.y, impulse.z);
+    rigidBody.applyCentralImpulse(imp);
+    Ammo.destroy(imp);
+}
+
+mylib2020.addForce = function (rigidBody, force = new THREE.Vector3(0, 0, 0)) {
+    const f = new Ammo.btVector3(force.x, force.y, force.z);
+    rigidBody.applyCentralForce(f);
+    Ammo.destroy(f);
+}
+
+mylib2020.applyAmmo = function (threeObject, rigidBody, btTransformBuffer) {
+    rigidBody.getMotionState().getWorldTransform(btTransformBuffer);
+    const p = btTransformBuffer.getOrigin();
+    const q = btTransformBuffer.getRotation();
     threeObject.position.set(p.x(), p.y(), p.z());
     threeObject.quaternion.set(q.x(), q.y(), q.z(), q.w());
 }
 
-mylib2020.AmmoCollisionList = class {
+/**
+ * Ammo.btRigidBody の位置、姿勢を設定する。
+ */
+mylib2020.AmmoRigidBodyPose = class {
     constructor() {
-        this.list = {};
+        this.position = new Ammo.btVector3();
+        this.quaternion = new Ammo.btQuaternion();
+        this.transform = new Ammo.btTransform();
+        this.ACTIVE_TAG = 1;
     }
 
-    clear() {
-        this.list = {};
+    /**
+     * Ammo.btRigidBody の位置、姿勢を設定する。
+     * @param {Ammo.btRigidBody} rigidBody 設定対象。
+     * @param {THREE.Vector3} position 位置。
+     * @param {THREE.Quaternion} quaternion 姿勢。
+     */
+    set(rigidBody, position, quaternion) {
+        this.position.setValue(position.x, position.y, position.z);
+        this.quaternion.setValue(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+        this.transform.setIdentity();
+        this.transform.setOrigin(this.position);
+        this.transform.setRotation(this.quaternion);
+        const motionState = new Ammo.btDefaultMotionState(this.transform);
+        Ammo.destroy(rigidBody.getMotionState());
+        rigidBody.forceActivationState(this.ACTIVE_TAG);
+        rigidBody.activate();
+        rigidBody.setMotionState(motionState);
     }
 
-    addCollisionPair(threeObject1, threeObject2) {
-        let data = this.getCollisionData(threeObject1);
-        if (!data) {
-            data = this.addCollisionData(threeObject1);
+    /**
+     * threeObject の位置、姿勢を threeObject.userData.rigidBody にある Ammo.btRigidBody に反映させる。
+     * @param {THREE.Object3D} threeObject threeObject.userData.rigidBody に Ammo.btRigidBody を持っている THREE.Object3D。
+     */
+    synch(threeObject) {
+        if (threeObject.userData.rigidBody) {
+            this.set(threeObject.userData.rigidBody, threeObject.position, threeObject.quaternion);
         }
-        if (data.targetSet.has(threeObject2) == false) {
-            data.targetSet.add(threeObject2);
-        }
     }
 
-    addCollisionPairCross(threeObject1, threeObject2) {
-        this.addCollisionPair(threeObject1, threeObject2);
-        this.addCollisionPair(threeObject2, threeObject1);
-    }
-
-    checkCollision(threeObject1, threeObject2) {
-        let targets = this.getCollisionTargets(threeObject1);
-        return targets.has(threeObject2);
-    }
-
-    getCollisionTargets(threeObject) {
-        const pair = this.getCollisionData(threeObject);
-        if (pair) {
-            return pair.targetSet;
-        }
-        return new Set();
-    }
-
-    getCollisionData(threeObject) {
-        return this.list[threeObject.id];
-    }
-
-    addCollisionData(threeObject) {
-        const data = { source: threeObject, targetSet: new Set() };
-        this.list[threeObject.id] = data;
-        return data;
+    destroy() {
+        Ammo.destroy(this.position);
+        Ammo.destroy(this.quaternion);
+        Ammo.destroy(this.transform);
     }
 }
+
+/**
+ * 物体同士の衝突を管理する。
+ */
+mylib2020.AmmoCollisionManager = class {
+    constructor() {
+        this.newCollisions = new Map();
+        this.all = new Map();
+        this.enter = new Map();
+        this.stay = new Map();
+        this.exit = new Map();
+    }
+
+    /**
+     * 今回のフレームで接触している全ての物体を得る。for(let object of ...)で個々の物体にアクセス可能。
+     * @returns {Iterator} of を使って for 文でアクセスできる。
+     * @example 
+     * for (let object of target.userData.collision.getAll()) {
+     *     // target と接触している個々の物体を参照できる。
+     * }
+     */
+    getAll() {
+        return this.all.keys();
+    }
+
+    /**
+     * 今回のフレームで接触を開始した全ての物体を得る。for(let object of ...)で個々の物体にアクセス可能。
+     * @returns {Iterator} of を使って for 文でアクセスできる。
+     * @example 
+     * for (let object of target.userData.collision.getEnter()) {
+     *     // target と接触を開始した個々の物体を参照できる。
+     * }
+     */
+    getEnter() {
+        return this.enter.keys();
+    }
+
+    /**
+     * 今回のフレームで接触を終了した全ての物体を得る。for(let object of ...)で個々の物体にアクセス可能。
+     * @returns {Iterator} of を使って for 文でアクセスできる。
+     * @example 
+     * for (let object of target.userData.collision.getExit()) {
+     *     // target と接触を終了した個々の物体を参照できる。
+     * }
+     */
+    getExit() {
+        return this.exit.keys();
+    }
+
+    /**
+     * 前回のフレームから接触を継続している全ての物体を得る。for(let object of ...)で個々の物体にアクセス可能。
+     * @returns {Iterator} of を使って for 文でアクセスできる。
+     * @example 
+     * for (let object of target.userData.collision.getStay()) {
+     *     // target と接触を継続している個々の物体を参照できる。
+     * }
+     */
+    getStay() {
+        return this.stay.keys();
+    }
+
+    collisionData() {
+        return { sourceContactPoints: [], targetContactPoints: [] };
+    }
+
+    addNewCollision(targetThreeObject) {
+        if (!this.newCollisions.has(targetThreeObject)) {
+            this.newCollisions.set(targetThreeObject, this.collisionData());
+        }
+    }
+
+    update() {
+        this.enter.clear();
+        this.stay.clear();
+        for (let k of this.newCollisions.keys()) {
+            if (this.all.has(k)) {
+                this.stay.set(k, this.newCollisions[k]);
+                this.all.delete(k);
+            } else {
+                this.enter.set(k, this.newCollisions[k]);
+            }
+        }
+        this.exit = this.all;
+        this.all = this.newCollisions;
+        this.newCollisions = new Map();
+    }
+}
+
+/**
+ * Ammo 物理エンジンへの物体の登録/削除などを行い、物理計算を実行する。
+ */
 mylib2020.AmmoManager = class {
+    /**
+     * @param {THREE.Scene} scene Three.js のシーン。
+     * @param {THREE.Vector3} gravity 重力の方向。 
+     * @param {number} subStep 物理計算の分割数。1 ステップの経過時間をさらに分割して計算したい場合に利用する。 
+     */
     constructor(scene, gravity = { x: 0, y: -9.8, z: 0 }, subStep = 1) {
         this.scene = scene;
         [this.world, this.dispatcher, this.overlappingPairCache, this.solver, this.collisionConfiguration]
             = mylib2020.initAmmo(gravity);
-        this.targetObjects = {};
+        this.targetObjects = new Set();
         this.subStep = subStep;
-        this.collisionList = new mylib2020.AmmoCollisionList();
+        this.collisionBuilder = new mylib2020.AmmoCollisionBuilder();
+        this.rigidBodyPose = new mylib2020.AmmoRigidBodyPose();
+        this.transform = new Ammo.btTransform();
     }
 
     applyPhysics(threeObject) {
         if (threeObject.userData.rigidBody) {
-            mylib2020.applyAmmo(threeObject, threeObject.userData.rigidBody);
+            mylib2020.applyAmmo(threeObject, threeObject.userData.rigidBody, this.transform);
         }
     }
 
-    registerObject(threeObject, rigidBody) {
-        if (this.targetObjects[threeObject.id]) {
+    /**
+     * 物体を弾き飛ばす、ジャンプさせるなど瞬間的な力を加える。
+     * @param {THREE.Object3D} threeObject userData.rigidBody に Ammo.btRigidBody を持つ物体。
+     * @param {THREE.Vector3} impulse 力の方向。 
+     */
+    addImpulse(threeObject, impulse) {
+        if (threeObject.userData.rigidBody) {
+            mylib2020.addImpulse(threeObject.userData.rigidBody, impulse);
+        }
+    }
+
+    /**
+     * 物体を指定した方向に押す。
+     * @param {THREE.Object3D} threeObject userData.rigidBody に Ammo.btRigidBody を持つ物体。
+     * @param {THREE.Vector3} force 力の方向。 
+     */
+    addForce(threeObject, force) {
+        if (threeObject.userData.rigidBody) {
+            mylib2020.addForce(threeObject.userData.rigidBody, force);
+        }
+    }
+
+    /**
+     * 物体をシーンと物理エンジンに登録する。CG も表示されるし、物理計算の影響も受けるようになる。
+     * @param {THREE.Object3D} threeObject userData.rigidBody に Ammo.btRigidBody を持つ物体。
+     */
+    registerObject(threeObject) {
+        if (this.targetObjects.has(threeObject)) {
             return false;
         }
-        mylib2020.addAmmoRigidBody(threeObject, rigidBody);
-        this.targetObjects[threeObject.id] = threeObject;
-        this.world.addRigidBody(threeObject.userData.rigidBody);
+        this.scene.add(threeObject);
+        this.targetObjects.add(threeObject);
+        if (threeObject.userData.rigidBody) {
+            this.world.addRigidBody(threeObject.userData.rigidBody);
+            threeObject.userData.collision = new mylib2020.AmmoCollisionManager();
+        }
     }
 
-    addPlane(threeObject, params = null) {
-        this.registerObject(threeObject, mylib2020.createAmmoPlane(threeObject, params));
+    /**
+     * 物体が物理エンジンの管理下にあるかどうか。
+     * @param {boolean} threeObject 検査対象。
+     */
+    has(threeObject) {
+        return this.targetObjects.has(threeObject);
     }
 
-    addBox(threeObject, params = null) {
-        this.registerObject(threeObject, mylib2020.createAmmoBox(threeObject, params));
-    }
-
-    addSphere(threeObject, params = null) {
-        this.registerObject(threeObject, mylib2020.createAmmoSphere(threeObject, params));
-    }
-
-    addCylinder(threeObject, params = null) {
-        this.registerObject(threeObject, mylib2020.createAmmoCylinder(threeObject, params));
-    }
-
-    addCone(threeObject, params = null) {
-        this.registerObject(threeObject, mylib2020.createAmmoCone(threeObject, params));
-    }
-
+    /**
+     * 物理計算を 1 ステップ行う。<br/>
+     * userData.movable が true かつ、 userData.linearVelocity もしくは userData.angularVelocity に速度を持つ物体は移動した上で物理エンジンの影響を受ける。
+     * @param {number} delta 経過時間。
+     */
     update(delta) {
+        for (let k of this.targetObjects) {
+            if (!k.userData.movable) {
+                continue;
+            }
+            if (k.userData.linearVelocity) {
+                k.translateOnAxis(mylib2020.FORWARD, k.userData.linearVelocity * delta);
+            }
+            if (k.userData.angularVelocity) {
+                k.rotateY(k.userData.angularVelocity * delta);
+            }
+            this.rigidBodyPose.synch(k);
+        }
         this.world.stepSimulation(delta, this.subStep);
-        for (let k in this.targetObjects) {
-            this.applyPhysics(this.targetObjects[k]);
+        for (let k of this.targetObjects) {
+            this.applyPhysics(k);
         }
         this.updateCollision();
-        return this.collisionList;
     }
 
     updateCollision() {
-        this.collisionList.clear();
         const numManifolds = this.dispatcher.getNumManifolds();
         for (let i = 0; i < numManifolds; i++) {
             const manifold = this.dispatcher.getManifoldByIndexInternal(i); // btPersistentManifold
@@ -301,22 +727,66 @@ mylib2020.AmmoManager = class {
             if (!obA.threeObject || !obB.threeObject) {
                 console.log("updateCollision: found unregistered objects");
                 continue;
-            } else {
-                // console.log(obA.threeObject.id + " & " + obB.threeObject.id);
             }
             const numContacts = manifold.getNumContacts(); // オブジェクト間の衝突点数
-            if (numContacts > 0) {
-                this.collisionList.addCollisionPairCross(obA.threeObject, obB.threeObject);
+            for (let j = 0; j < numContacts; j++) {
+                const pt = manifold.getContactPoint(j);//btManifoldPoint
+                if (pt.getDistance() <= 0.0) {
+                    const ptA = pt.getPositionWorldOnA(); // btVector3
+                    const ptB = pt.getPositionWorldOnB(); // btVector3
+                }
             }
+            if (numContacts > 0) {
+                obA.threeObject.userData.collision.addNewCollision(obB.threeObject);
+                obB.threeObject.userData.collision.addNewCollision(obA.threeObject);
+            }
+        }
+        for (let obj of this.targetObjects) {
+            obj.userData.collision.update();
         }
     }
 
-    remove(threeObject) {
+    removePhysics(threeObject) {
+        if (threeObject.userData.collision) {
+            delete threeObject.userData.collision;
+        }
         if (threeObject.userData.rigidBody) {
             this.world.removeRigidBody(threeObject.userData.rigidBody);
             mylib2020.removeAmmoRigidBody(threeObject);
+            mylib2020.removeAmmoShapeRecursive(threeObject);
         }
-        delete this.targetObjects[threeObject.id];
+    }
+
+    /**
+     * 物理エンジンと 3D シーンから物体を削除する。
+     * @param {THREE.Object3D} threeObject 
+     */
+    remove(threeObject) {
+        this.removePhysics(threeObject);
+        this.targetObjects.delete(threeObject);
         this.scene.remove(threeObject);
+    }
+
+    /**
+     * 全ての物体をシーンと物理エンジンから削除する。
+     */
+    clear() {
+        for (let obj of this.targetObjects) {
+            this.removePhysicsRecursive(obj);
+            this.scene.remove(threeObject);
+        }
+        this.targetObjects.clear();
+    }
+
+    destroy() {
+        this.clear();
+        this.collisionBuilder.destroy();
+        this.rigidBodyPose.destroy();
+        Ammo.destroy(this.transform);
+        Ammo.destroy(this.world);
+        Ammo.destroy(this.dispatcher);
+        Ammo.destroy(this.overlappingPairCache);
+        Ammo.destroy(this.solver);
+        Ammo.destroy(this.collisionConfiguration);
     }
 }

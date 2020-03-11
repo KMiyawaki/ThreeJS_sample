@@ -6,12 +6,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Scene</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/build/three.min.js"></script>
     <script type="text/javascript"
         src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/examples/js/controls/OrbitControls.js"></script>
-    <script type="text/javascript" src="../js/myThree2020.js"></script>
-    <script type="text/javascript" src="../js/myMaze.js"></script>
-    <script type="text/javascript" src="../js/myGameCharacter.js"></script>
+    <script src="../js/myThree2020.js"></script>
+    <script src="../js/myMaze.js"></script>
+    <script src="../js/myGameCharacter.js"></script>
     <link rel="stylesheet" type="text/css" href="../css/common.css">
 </head>
 
@@ -70,8 +70,8 @@
             const mapTexture = loader.load("../assets/downloads/ReflectingTheLava.png");
             const bumpTexture = loader.load("../assets/downloads/RockWall_orFloor_height.png");
             const cubeGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-            const cubeMaterial = new THREE.MeshPhongMaterial({ map: mapTexture, bumpMap: bumpTexture, bumplScale: 0.3 });
-            const maze = new MyMaze(MyMazeTestData, 5, 5, cubeGeometry, cubeMaterial, CUBE_SIZE);
+            const cubeMaterial = new THREE.MeshPhongMaterial({ map: mapTexture, bumpMap: bumpTexture, bumpScale: 0.3 });
+            const maze = new MyMaze(MyMazeTestData, 5, 5, cubeGeometry, cubeMaterial);
             maze.addToScene(scene);
 
             const heroObject = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshPhongMaterial({ color: 0xFF0000, wireframe: false }));

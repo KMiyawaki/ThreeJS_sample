@@ -1,4 +1,20 @@
+/**
+ * @fileOverview RPG のキャラクタ等を表現するクラス例。
+ * @author K.Miyawaki
+ */
+
+/**
+ * RPG キャラクタが持つ武器を表現するクラス例。
+ */
 class MyGameItem {
+    /**
+     * @constructor
+     * @param {string} name 名前。 
+     * @param {number} attackMin ダメージ最小値。 
+     * @param {number} attackMax ダメージ最大値。 
+     * @param {number} attackCount 攻撃回数。 
+     * @param {number} stock 所持数。 null で無限に使用できる。
+     */
     constructor(name, attackMin, attackMax, attackCount, stock) {
         this.name = name;
         this.attackMin = attackMin;
@@ -7,6 +23,11 @@ class MyGameItem {
         this.stock = stock;
     }
 
+    /**
+     * この武器がまだ使えるかどうか。
+     * @returns {boolean} 使えるなら true 。
+     * @memberof MyGameItem
+     */
     checkCount() {
         if (this.stock == null) {
             return true;
@@ -14,16 +35,30 @@ class MyGameItem {
         return this.stock > 0;
     }
 
+    /**
+     * この武器を使い、所持数を減らす。0 未満にはしない。 this.stock が null なら何もしない。
+     * @memberof MyGameItem
+     */
     use() {
         if (this.stock) {
             this.stock = Math.max(0, this.stock - 1);
         }
     }
 
+    /**
+     * この武器で攻撃した場合の 1 回あたりのダメージを計算する。
+     * @returns {number}
+     * @memberof MyGameItem
+     */
     calcAttackBonus() {
         return Math.floor(Math.random() * (this.attackMax + 1 - this.attackMin)) + this.attackMin;
     }
 
+    /**
+     * この武器の文字列での表現を得る。
+     * @returns {string}
+     * @memberof MyGameItem
+     */
     getString() {
         let text = this.name + ":";
         if (this.stock == null) {
@@ -35,7 +70,19 @@ class MyGameItem {
     }
 }
 
+/**
+ * RPG のキャラクタを表現するクラス例。
+ */
 class MyGameCharacter {
+    /**
+     * @constructor
+     * @param {string} name キャラクタの名前。
+     * @param {string} [imageURL=null] 画像の URL 。null なら画像表示しない。
+     * @param {number} [hp=1] 体力。
+     * @param {number} [power=1] 腕力。
+     * @param {number} [defense=1] 防御力。
+     * @param {number} [speed=1] 素早さ。
+     */
     constructor(name, imageURL = null, hp = 1, power = 1, defense = 1, speed = 1) {
         this.name = name;
         this.hp = hp;
@@ -48,6 +95,11 @@ class MyGameCharacter {
         this.image = null;
     }
 
+    /**
+     * キャラクタの画像をロードして、指定された HTML 要素に表示する。
+     * @param {HTMLDocument} targetElement
+     * @memberof MyGameCharacter
+     */
     show(targetElement) {
         if (this.imageURL) {
             this.image = document.createElement("img");
@@ -80,20 +132,48 @@ class MyGameCharacter {
         }
     }
 
+    /**
+     * キャラクタ画像を指定した HTML 要素から取り除く。
+     * @param {HTMLElement} targetElement
+     * @memberof MyGameCharacter
+     */
     remove(targetElement) {
         if (this.image) {
             targetElement.removeChild(this.image);
         }
     }
 
+    /**
+     * キャラクタが生存しているか否か。 true: 生存している。
+     * @returns {boolean}
+     * @memberof MyGameCharacter
+     */
     isAlive() {
         return this.hp > 0;
     }
 
+    /**
+     * 他のキャラクタに攻撃が命中するか否か。 true: 命中する。
+     * @param {MyGameCharacter} targetCharacter 攻撃対象。
+     * @returns {boolean}
+     * @memberof MyGameCharacter
+     */
     checkHit(targetCharacter) {
         return (Math.random() * this.speed) > (Math.random() * targetCharacter.speed);
     }
 
+    /**
+     * targetCharacter に攻撃し、ダメージを与える。
+     * @param {MyGameCharacter} targetCharacter
+     * @param {MyGameItem} wepon
+     * @returns {Object} 以下のキーを持つ Object 。
+     * <ul>
+     *   <li>hitCount: 攻撃命中回数</li>
+     *   <li>damage: 与えたダメージ</li>
+     *   <li>message: 攻撃結果を表現する文字列</li>
+     * </ul>
+     * @memberof MyGameCharacter
+     */
     attackTo(targetCharacter, wepon) {
         let damage = 0;
         let hitCount = 0;
@@ -120,6 +200,11 @@ class MyGameCharacter {
         return { hitCount: hitCount, damage: damage, message: message };
     }
 
+    /**
+     * このキャラクタのステータスを表示する。
+     * @param {HTMLElement} htmlElement 表示対象の HTML 要素。
+     * @memberof MyGameCharacter
+     */
     print(htmlElement) {
         htmlElement.innerHTML = "";
         htmlElement.innerHTML += ("<b>" + this.name + "</b><br />");
