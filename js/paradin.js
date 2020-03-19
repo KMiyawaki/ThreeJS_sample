@@ -25,7 +25,6 @@ const Paradin = {
             character.userData.crntAction = nextAction;
             character.userData.crntAction.play();
         }
-        console.log(character.userData.crntAction.time + "/" + character.userData.crntAction.getClip().duration);
         character.userData.mixer.update(deltaTime);
     }
 };
