@@ -9,7 +9,7 @@ const createMyBlock = function (mapTexture, normalTexture, size) {
     cube.castShadow = true;
     cube.receiveShadow = true;
     return cube;
-}
+};
 
 
 /**

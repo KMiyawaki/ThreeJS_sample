@@ -23,7 +23,7 @@ mylib2020.BACK = new THREE.Vector3(0, 0, -1);
 
 mylib2020.createRectSize = function (x, y, w, h) {
     return { x: x, y: y, width: w, height: h };
-}
+};
 
 mylib2020.calcScreenSize = function (aspect, viewPortWidth, viewPortHeight) {
     let w = viewPortWidth
@@ -34,7 +34,7 @@ mylib2020.calcScreenSize = function (aspect, viewPortWidth, viewPortHeight) {
         w = h * aspect;
     }
     return mylib2020.createRectSize(0, 0, w, h);
-}
+};
 
 
 /**
@@ -51,6 +51,7 @@ mylib2020.calcScreenSize = function (aspect, viewPortWidth, viewPortHeight) {
  *   <li>camPosX - number カメラの初期位置。(デフォルト: 0)</li>
  *   <li>camPosY - number カメラの初期位置。(デフォルト: 2)</li>
  *   <li>camPosZ - number カメラの初期位置。(デフォルト: -7)</li>
+ *   <li>outputEncoding - number 出力の gamma 補正方式。(デフォルト: THREE.sRGBEncoding)</li>
  * </ul>
  * @returns {Array} 次の要素が入った配列。
  * <ul>
@@ -72,6 +73,7 @@ mylib2020.initThree = function (width, height, opts) {
     const camPosX = ('camPosX' in opts) ? opts.camPosX : 0;
     const camPosY = ('camPosY' in opts) ? opts.camPosY : 2;
     const camPosZ = ('camPosZ' in opts) ? opts.camPosZ : -7;
+    const outputEncoding = ('outputEncoding' in opts) ? opts.outputEncoding : THREE.sRGBEncoding;
 
     let scene = new THREE.Scene();
     let camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
@@ -85,12 +87,13 @@ mylib2020.initThree = function (width, height, opts) {
     renderer.setClearColor(new THREE.Color(clearColor));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
+    renderer.outputEncoding = outputEncoding;
     camera.position.x = camPosX;
     camera.position.y = camPosY;
     camera.position.z = camPosZ;
     camera.lookAt(new THREE.Vector3(0, -0.5, 0));
     return [scene, camera, renderer, clock, axes];
-}
+};
 
 /**
  * Three.js を初期化し、シーンを生成する。
@@ -105,6 +108,7 @@ mylib2020.initThree = function (width, height, opts) {
  *   <li>camPosX - number カメラの初期位置。(デフォルト: 0)</li>
  *   <li>camPosY - number カメラの初期位置。(デフォルト: 2)</li>
  *   <li>camPosZ - number カメラの初期位置。(デフォルト: -7)</li>
+ *   <li>outputEncoding - number 出力の gamma 補正方式。(デフォルト: THREE.sRGBEncoding)</li>
  * </ul>
  * @returns {Array} 次の要素が入った配列。
  * <ul>
@@ -120,8 +124,18 @@ mylib2020.initThreeInElement = function (element, opts) {
     let [scene, camera, renderer, clock, axes] = mylib2020.initThree(rect.width, rect.height, opts);
     element.appendChild(renderer.domElement);
     return [scene, camera, renderer, clock, axes];
-}
+};
 
+
+/**
+ * fromObject の中心から指定した方向にレイを飛ばし、 targetMeshes に含まれる物体と交叉するかどうかを判定する。<br/>
+ * 物理エンジンを用いない簡易な衝突判定法。
+ * @param {THREE.Object3D} fromObject レイの中心となる物体。
+ * @param {Array<THREE.Object3D>} targetMeshes レイの交叉判定対象となる物体群が入った配列。
+ * @param {THREE.Vector3} direction レイの方向。
+ * @param {number} [distance=1.5] レイとの交差地点と fromObject の距離がこの値未満なら衝突しているとみなす。
+ * @returns {boolean} 衝突している物体があるか否か。 true: 何かと衝突している。
+ */
 mylib2020.checkCollision = function (fromObject, targetMeshes, direction, distance = 1.5) {
     const v = direction.clone();
     v.applyEuler(fromObject.rotation);
@@ -133,7 +147,7 @@ mylib2020.checkCollision = function (fromObject, targetMeshes, direction, distan
         }
     }
     return false;
-}
+};
 
 mylib2020.initPushButton = function (element, activeColor, onPressed = null, onReleased = null, normalColor = null) {
     const supportTouch = 'ontouchend' in document;
@@ -171,8 +185,7 @@ mylib2020.initPushButton = function (element, activeColor, onPressed = null, onR
             }
         });
     }
-
-}
+};
 
 /**
  * キャラクタ操作用のデジタルな十字キーのボタンを生成する。
@@ -301,4 +314,47 @@ mylib2020.ArrowButton = class {
         this.outputLog('onMouseLeave:');
         this.release();
     }
-}
+};
+
+/**
+ * GLTF モデルをロードする Promise を生成する。引数の src は連想配列で、ロードに成功すると src.gltf にロードされた gltf 全体が入る。
+ * @param {{url: string, gltf: null}} src url にはロードする GLTF の URL を指定し、gltf の初期値は null にしておく。
+ * @returns
+ */
+mylib2020.loadGltfPromise = function (src) {
+    return new Promise(function (resolve, reject) {
+        new THREE.GLTFLoader().load(src.url, // この関数は非同期的に実行される。
+            function (gltf) { // モデルロードに成功
+                const log = "loaded: " + src.url;
+                src.gltf = gltf;
+                resolve(log);
+            }, null, function (error) {
+                const log = "Failed to load: " + src.url + "," + error + "\n";
+                reject(log);
+            }
+        );
+    });
+};
+
+/**
+ * srcArray に指定した GLTF を全てロードする Promise を生成する。
+ * @param {Array.<{url: string, gltf: null}>} srcArray url にはロードする GLTF の URL を指定し、gltf の初期値を null にした連想配列の配列。
+ * @returns
+ */
+mylib2020.loadMultiGltfPromise = function (srcArray) {
+    return new Promise(function (resolve, reject) {
+        const loaders = [];
+        for (src of srcArray) {
+            loaders.push(mylib2020.loadGltfPromise(src));
+        }
+        Promise.all(loaders).then(function (response) {
+            let log = "";
+            for (r of response) {
+                log += r + "\n";
+            }
+            resolve(log);
+        }).catch(function (err) {
+            reject(err);
+        });
+    });
+};
