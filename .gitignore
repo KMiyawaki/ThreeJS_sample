@@ -49,7 +49,6 @@ CATKIN_IGNORE
 #Visucal Studio Code
 .vscode
 
-# external js libs
-/js/ammo.js
-/js/three.js
-/js/three.min.js
+# downloaded glb files
+/assets/downloads/*.glb
+/assets/downloads/Mixamo/*

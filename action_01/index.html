@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scene</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/build/three.js"></script>
+    <script type="text/javascript"
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/examples/js/controls/OrbitControls.js"></script>
+    <!-- GLTF モデルロードに必要 -->
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- FBX モデルロードに必要 -->
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/examples/js/libs/inflate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r114/examples/js/loaders/FBXLoader.js"></script>
+    <!-- 物理エンジン Ammo -->
+    <script type="text/javascript"
+        src="https://cdn.jsdelivr.net/gh/kripken/ammo.js@aab297a4164779c3a9d8dc8d9da26958de3cb778/builds/ammo.js"></script>
+    <!-- アニメーションライブラリ TweenMax -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.2.4/gsap.min.js"></script>
+    <script type="text/javascript" src="../js/myThree2020.js"></script>
+    <script type="text/javascript" src="../js/myAmmo2020.js"></script>
+    <script type="text/javascript" src="../js/paradin.js"></script>
+    <link rel="stylesheet" type="text/css" href="../css/common.css">
+</head>
+
+<body>
+    <div id="screen" class="screen">
+        <div id="glView" style="position: relative;height: 75%;">
+            <!--textarea id="debugText" rows="8" cols="20" class="debugText" style="display: none;">Debug output</textarea> デバッグ用表示を無くしたいときはこちらを有効にする。-->
+            <textarea id="debugText" rows="8" cols="20" class="debugText">Debug output</textarea>
+            <button id="startButton" class="startButton" onclick="javascript:load()">
+                Click to Play
+            </button>
+        </div>
+        <div id="controller" style="position: relative;height: 25%;background-color:chocolate">
+            <div id="up" class="arrowButton"
+                style="top: 5%; left: 16%; background-image:url(../assets/gray_arrow.png);">
+            </div>
+            <div id="down" class="arrowButton"
+                style="top: 65%; left: 16%; background-image:url(../assets/gray_arrow.png); transform: rotate(180deg)">
+            </div>
+            <div id="left" class="arrowButton"
+                style="top: 35%; left: 3%; background-image:url(../assets/gray_arrow.png); transform: rotate(-90deg)">
+            </div>
+            <div id="right" class="arrowButton"
+                style="top: 35%; left: 29%; background-image:url(../assets/gray_arrow.png); transform: rotate(90deg)">
+            </div>
+            <button id="action" type="button" class="pushButton" style="width: 13%;top: 45%; right: 3%;" value="0">
+                Act
+            </button>
+        </div>
+    </div>
+    <script type="text/javascript">
+        function load() {
+            const taDebugText = document.getElementById("debugText");
+            taDebugText.value = ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
+            /* ロードするモデルとアニメーションの URL */
+            const modelRoot = "../assets/downloads/Mixamo/";
+            const paradinData = {
+                scale: new THREE.Vector3(0.4, 1, 0.7),
+                offset: new THREE.Vector3(0, 0, -0.1),
+                src: [
+                    { url: modelRoot + "Paradin/Sword And Shield Idle.glb", gltf: null },
+                    { url: modelRoot + "Paradin/Sword And Shield Run.glb", gltf: null },
+                    { url: modelRoot + "Paradin/Sword And Shield Slash.glb", gltf: null },
+                    { url: modelRoot + "Paradin/Sword And Shield Kick.glb", gltf: null }
+                ]
+            };
+            const zombieData = {
+                scale: new THREE.Vector3(1, 1, 1),
+                offset: new THREE.Vector3(0, 0, 0),
+                src: [
+                    { url: modelRoot + "Zombie/Zombie Idle.glb", gltf: null },
+                    { url: modelRoot + "Zombie/Zombie Running.glb", gltf: null },
+                    { url: modelRoot + "Zombie/Zombie Attack.glb", gltf: null },
+                    { url: modelRoot + "Zombie/Zombie Death.glb", gltf: null }
+                ]
+            };
+            const mutantData = {
+                scale: new THREE.Vector3(0.3, 1, 1),
+                offset: new THREE.Vector3(-0.1, 0, 0),
+                src: [
+                    { url: modelRoot + "Mutant/Mutant Idle.glb", gltf: null },
+                    { url: modelRoot + "Mutant/Mutant Run.glb", gltf: null },
+                    { url: modelRoot + "Mutant/Mutant Punch.glb", gltf: null },
+                    { url: modelRoot + "Mutant/Mutant Swiping.glb", gltf: null }
+                ]
+            };
+
+            let character = null;
+            const characterData = paradinData;
+            mylib2020.loadMultiGltfPromise(characterData.src).then(function (response) {
+                taDebugText.value += response + "\n";
+                character = characterData.src[0].gltf.scene;
+                const mixer = new THREE.AnimationMixer(character);
+                const actions = [];
+                for (let i = 0; i < characterData.src.length; i++) {
+                    actions.push(mixer.clipAction(characterData.src[i].gltf.animations[0]));
+                }
+                character.userData.mixer = mixer;
+                character.userData.actions = actions;
+                character.userData.crntAction = null;
+                character.userData.scale = characterData.scale;
+                character.userData.offset = characterData.offset;
+                character.userData.onUpdate = Paradin.onUpdate;
+                init();
+            }).catch(function (err) {
+                taDebugText.value += err + "\n";
+            });
+
+            function init() {
+                /* 主要な HTML 要素の取得 */
+                const divScreen = document.getElementById("screen");
+                const divGlView = document.getElementById("glView");
+                const btnAction = document.getElementById("action");
+                divGlView.removeChild(document.getElementById('startButton'));
+                btnAction.addEventListener("click", function () { });
+
+                /* デバッグ用の出力 */
+                const AUTO_SCROLL_DEBUG = true; // taDebugText を常に最新の行までスクロールさせるかどうか。
+
+                /* THREE.js の初期化 */
+                const [scene, camera, renderer, clock, axes] = mylib2020.initThreeInElement(divGlView);
+                camera.position.set(5, 5, 5);
+
+                /* ammo.js の初期化 */
+                Ammo();
+                const ammo = new mylib2020.AmmoManager(scene);
+                /* キャラクタを物理エンジンに登録する */
+                ammo.collisionBuilder.addBoundingSphereRigidBody(character, {
+                    showCollision: true, scale: character.userData.scale, offset: character.userData.offset,
+                    movable: true, mass: 100, friction: 0.9, restitution: 0.1, freezeRotationX: true, freezeRotationZ: true, angularDamping: 0.8
+                });
+                ammo.registerObject(character);
+                character.userData.crntAction = character.userData.actions[0];
+                character.userData.crntAction.play();
+
+                /* サウンド関連 */
+                const audioListener = new THREE.AudioListener();
+                camera.add(audioListener);
+
+                /* 平面の生成 */
+                const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0xCCFFCC }));
+                plane.rotateX(THREE.Math.degToRad(-90)); /* X 軸中心に90度回転 */
+                plane.receiveShadow = true; /* 他の物体の影が落ちる */
+                ammo.collisionBuilder.addPrimitiveRigidBody(plane, { mass: 0, movable: true });
+                ammo.registerObject(plane);
+
+                /* 円柱の生成 */
+                const cylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1, 20, 32),
+                    new THREE.MeshPhongMaterial({ color: 0xFFFF00, transparent: true }));
+                cylinder.name = "Cylinder"; // 衝突時に分かりやすくするため物体に名前を付ける。
+                cylinder.scale.set(2, 2, 2);
+                cylinder.position.set(-3, 0.2, 3.5);
+                cylinder.userData.originalColor = cylinder.material.color.clone();
+                /* 円柱に衝突検出範囲を設定して、物理的属性を追加する */
+                ammo.collisionBuilder.addPrimitiveRigidBody(cylinder, { mass: 500 });
+                /* 円柱を物理計算対象としてシーンに追加する */
+                ammo.registerObject(cylinder);
+
+                /* 円錐の生成 */
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 20, 32),
+                    new THREE.MeshPhongMaterial({ color: 0xFF00FF }));
+                cone.name = "Cone"; // 衝突時に分かりやすくするため物体に名前を付ける。
+                cone.scale.set(2, 6, 2);
+                cone.position.set(0, 10, 0.5);
+                cone.rotateX(THREE.Math.degToRad(190));
+                cone.rotateZ(THREE.Math.degToRad(30));
+                cone.castShadow = true;
+                cone.receiveShadow = true;
+                cone.userData.originalColor = cone.material.color.clone();
+                /* 円錐に衝突検出範囲を設定して、物理的属性を追加する */
+                ammo.collisionBuilder.addPrimitiveRigidBody(cone, { mass: 500 });
+                /* 円錐を物理計算対象としてシーンに追加する */
+                ammo.registerObject(cone);
+
+                /* 平行光源の生成 */
+                const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.0); /* 色は白、強さは 1.0 */
+                directionalLight.castShadow = true; /* 他の物体に影を落とす */
+                directionalLight.position.set(5, 5, 5);        /* 座標(5,5,5)から */
+                directionalLight.target.position.set(0, 0, 0); /* 座標(0,0,0)に照射 */
+                scene.add(directionalLight);        /* ライト本体と */
+                scene.add(directionalLight.target); /* 照射ターゲットもシーンに追加する必要がある */
+
+                /* マウスコントローラの追加 */
+                /* THREE.js 本体には含まれていないことに注意 */
+                const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+                orbitControls.update();
+
+                elems = document.getElementsByClassName("arrowButton"); // class 属性に arrowButton が指定された HTML 要素を全て取得し、配列に格納する。
+                const arrows = {}; // div の id と十字キーボタンクラスをペアとする辞書
+                for (let e of elems) {
+                    arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
+                    /* 十字キーボタンを生成する。第一引数はボタン領域となる HTML の div 要素、第二引数は押したときの画像 */
+                }
+                const LINEAR = 3.0; // 直進速度 3.0m/sec
+                const ANGULAR = THREE.Math.degToRad(60); // 回転速度 60deg/sec
+                /* アニメーションのための描画更新処理 */
+                function renderFrame() {
+                    const deltaTime = clock.getDelta(); /* 前フレームからの経過時間。物体の移動に使う。 */
+                    orbitControls.update(deltaTime);
+                    ammo.update(deltaTime);
+                    character.userData.linearVelocity = 0;
+                    character.userData.angularVelocity = 0;
+                    if (arrows["up"].isPressed()) {
+                        character.userData.linearVelocity = LINEAR;
+                    }
+                    if (arrows["down"].isPressed()) {
+                        character.userData.linearVelocity = -LINEAR;
+                    }
+                    if (arrows["left"].isPressed()) {
+                        character.userData.angularVelocity = ANGULAR;
+                    }
+                    if (arrows["right"].isPressed()) {
+                        character.userData.angularVelocity = -ANGULAR;
+                    }
+                    character.userData.onUpdate(ammo, character, deltaTime);
+                    renderer.render(scene, camera);
+                    requestAnimationFrame(renderFrame);
+                    if (AUTO_SCROLL_DEBUG) {
+                        taDebugText.scrollTop = taDebugText.scrollHeight;
+                    }
+                }
+                renderFrame();
+
+                /* 画面サイズ変更時の処理 */
+                window.addEventListener('resize', function () {
+                    taDebugText.value += ("ViewPort: " + window.innerWidth + "," + window.innerHeight + "\n");
+                    const glViewSize = divGlView.getBoundingClientRect();
+                    renderer.setSize(glViewSize.width, glViewSize.height);
+                    camera.aspect = glViewSize.width / glViewSize.height;
+                    camera.updateProjectionMatrix();
+                });
+            }
+        }
+    </script>
+</body>
