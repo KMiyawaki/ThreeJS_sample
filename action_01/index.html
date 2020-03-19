@@ -116,7 +116,9 @@
                 const divGlView = document.getElementById("glView");
                 const btnAction = document.getElementById("action");
                 divGlView.removeChild(document.getElementById('startButton'));
-                btnAction.addEventListener("click", function () { });
+                btnAction.addEventListener("click", function () {
+                    character.userData.attack = true;
+                });
 
                 /* デバッグ用の出力 */
                 const AUTO_SCROLL_DEBUG = true; // taDebugText を常に最新の行までスクロールさせるかどうか。
