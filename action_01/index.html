@@ -35,19 +35,19 @@
             </button>
         </div>
         <div id="controller" style="position: relative;height: 25%;background-color:chocolate">
-            <div id="up" class="arrowButton"
+            <div id="up" class="gameButton"
                 style="top: 5%; left: 16%; background-image:url(../assets/gray_arrow.png);">
             </div>
-            <div id="down" class="arrowButton"
+            <div id="down" class="gameButton"
                 style="top: 65%; left: 16%; background-image:url(../assets/gray_arrow.png); transform: rotate(180deg)">
             </div>
-            <div id="left" class="arrowButton"
+            <div id="left" class="gameButton"
                 style="top: 35%; left: 3%; background-image:url(../assets/gray_arrow.png); transform: rotate(-90deg)">
             </div>
-            <div id="right" class="arrowButton"
+            <div id="right" class="gameButton"
                 style="top: 35%; left: 29%; background-image:url(../assets/gray_arrow.png); transform: rotate(90deg)">
             </div>
-            <div id="action" class="arrowButton"
+            <div id="action" class="gameButton"
                 style="top: 35%; right: 3%; background-image:url(../assets/gray_circle.png);">
             </div>
         </div>
@@ -187,7 +187,7 @@
                 const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
                 orbitControls.update();
 
-                elems = document.getElementsByClassName("arrowButton"); // class 属性に arrowButton が指定された HTML 要素を全て取得し、配列に格納する。
+                elems = document.getElementsByClassName("gameButton"); // class 属性に gameButton が指定された HTML 要素を全て取得し、配列に格納する。
                 const arrows = {}; // div の id と十字キーボタンクラスをペアとする辞書
                 for (let e of elems) {
                     if (e.id == "action") {

@@ -40,7 +40,7 @@ body {
   font-size: x-small;
 }
 
-.arrowButton {
+.gameButton {
   position: absolute;
   font-size: x-large;
   user-select: none;

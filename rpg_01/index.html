@@ -26,15 +26,15 @@
             <textarea id="message" class="message" style="left: 20%;width: 78%">メッセージウィンドウ</textarea>
         </div>
         <div id="controller" style="position: relative;height: 25%;background-color:chocolate">
-            <div id="up" class="arrowButton"
+            <div id="up" class="gameButton"
                 style="top: 5%; left: 16%; background-image:url(../assets/gray_arrow.png);"></div>
-            <div id="down" class="arrowButton"
+            <div id="down" class="gameButton"
                 style="top: 65%; left: 16%; background-image:url(../assets/gray_arrow.png); transform: rotate(180deg)">
             </div>
-            <div id="left" class="arrowButton"
+            <div id="left" class="gameButton"
                 style="top: 35%; left: 3%; background-image:url(../assets/gray_arrow.png); transform: rotate(-90deg)">
             </div>
-            <div id="right" class="arrowButton"
+            <div id="right" class="gameButton"
                 style="top: 35%; left: 29%; background-image:url(../assets/gray_arrow.png); transform: rotate(90deg)">
             </div>
             <button id="sword" type="button" class="pushButton" style="width: 13%;top: 30%; right: 29%;" value="0">
@@ -102,7 +102,7 @@
             // Setup GUI
             const arrows = {};
             const buttons = {};
-            let elems = document.getElementsByClassName("arrowButton");
+            let elems = document.getElementsByClassName("gameButton");
             for (let e of elems) {
                 arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
             }
