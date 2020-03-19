@@ -197,28 +197,12 @@
                     arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
                     /* 十字キーボタンを生成する。第一引数はボタン領域となる HTML の div 要素、第二引数は押したときの画像 */
                 }
-                const LINEAR = 3.0; // 直進速度 3.0m/sec
-                const ANGULAR = THREE.Math.degToRad(60); // 回転速度 60deg/sec
                 /* アニメーションのための描画更新処理 */
                 function renderFrame() {
                     const deltaTime = clock.getDelta(); /* 前フレームからの経過時間。物体の移動に使う。 */
                     orbitControls.update(deltaTime);
                     ammo.update(deltaTime);
-                    character.userData.linearVelocity = 0;
-                    character.userData.angularVelocity = 0;
-                    if (arrows["up"].isPressed()) {
-                        character.userData.linearVelocity = LINEAR;
-                    }
-                    if (arrows["down"].isPressed()) {
-                        character.userData.linearVelocity = -LINEAR;
-                    }
-                    if (arrows["left"].isPressed()) {
-                        character.userData.angularVelocity = ANGULAR;
-                    }
-                    if (arrows["right"].isPressed()) {
-                        character.userData.angularVelocity = -ANGULAR;
-                    }
-                    character.userData.onUpdate(ammo, character, deltaTime);
+                    character.userData.onUpdate(ammo, character, deltaTime, { arrows: arrows });
                     renderer.render(scene, camera);
                     requestAnimationFrame(renderFrame);
                     if (AUTO_SCROLL_DEBUG) {

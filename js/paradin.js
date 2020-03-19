@@ -1,26 +1,51 @@
 const Paradin = {
     onUpdate: function (ammo, character, deltaTime, params) {
+        const LINEAR = 3.0; // 直進速度 3.0m/sec
+        const ANGULAR = THREE.Math.degToRad(90); // 回転速度 60deg/sec
+        character.userData.linearVelocity = 0;
+        character.userData.angularVelocity = 0;
+        if (params.arrows["up"].isPressed()) {
+            character.userData.linearVelocity = LINEAR;
+        }
+        if (params.arrows["down"].isPressed()) {
+            character.userData.linearVelocity = -LINEAR;
+        }
+        if (params.arrows["left"].isPressed()) {
+            character.userData.angularVelocity = ANGULAR;
+        }
+        if (params.arrows["right"].isPressed()) {
+            character.userData.angularVelocity = -ANGULAR;
+        }
+
+        const idle = character.userData.actions[0];
+        const running = character.userData.actions[1];
+        const attack = character.userData.actions[2];
+        const crntAction = character.userData.crntAction;
         let nextAction = character.userData.crntAction;
-        if (character.userData.crntAction == character.userData.actions[0]) {
+        const isMoving = (Math.abs(character.userData.linearVelocity) > 0 || Math.abs(character.userData.angularVelocity) > 0);
+        if (crntAction == idle) {
             if (character.userData.attack) {
-                nextAction = character.userData.actions[2];
-            } else if (Math.abs(character.userData.linearVelocity) > 0 || Math.abs(character.userData.angularVelocity) > 0) {
-                nextAction = character.userData.actions[1];
+                nextAction = attack;
+            } else if (isMoving) {
+                nextAction = running;
             }
-        } else if (character.userData.crntAction == character.userData.actions[1]) {
+        } else if (crntAction == running) {
             if (character.userData.attack) {
-                nextAction = character.userData.actions[2];
-                character.userData.attack = false;
-            } else if (Math.abs(character.userData.linearVelocity) <= 0 && Math.abs(character.userData.angularVelocity) <= 0) {
-                nextAction = character.userData.actions[0];
+                nextAction = attack;
+            } else if (!isMoving) {
+                nextAction = idle;
             }
-        } else if (character.userData.crntAction == character.userData.actions[2]) {
-            if (character.userData.crntAction.time + deltaTime >= character.userData.crntAction.getClip().duration) {
-                nextAction = character.userData.actions[0];
+        } else if (crntAction == attack) {
+            if (crntAction.time + deltaTime >= crntAction.getClip().duration) {
+                nextAction = idle;
                 character.userData.attack = false;
             }
         }
-        if (nextAction != character.userData.crntAction) {
+        if (nextAction == attack) {
+            character.userData.linearVelocity = 0;
+            character.userData.angularVelocity = 0;
+        }
+        if (nextAction != crntAction) {
             character.userData.crntAction.stop();
             character.userData.crntAction = nextAction;
             character.userData.crntAction.play();
