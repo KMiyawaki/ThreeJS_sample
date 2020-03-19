@@ -2,6 +2,7 @@ const Paradin = {
     onUpdate: function (ammo, character, deltaTime, params) {
         const LINEAR = 3.0; // 直進速度 3.0m/sec
         const ANGULAR = THREE.Math.degToRad(90); // 回転速度 60deg/sec
+        const isAttackPressed = params.arrows["action"].isPressed();
         character.userData.linearVelocity = 0;
         character.userData.angularVelocity = 0;
         if (params.arrows["up"].isPressed()) {
@@ -24,13 +25,13 @@ const Paradin = {
         let nextAction = character.userData.crntAction;
         const isMoving = (Math.abs(character.userData.linearVelocity) > 0 || Math.abs(character.userData.angularVelocity) > 0);
         if (crntAction == idle) {
-            if (character.userData.attack) {
+            if (isAttackPressed) {
                 nextAction = attack;
             } else if (isMoving) {
                 nextAction = running;
             }
         } else if (crntAction == running) {
-            if (character.userData.attack) {
+            if (isAttackPressed) {
                 nextAction = attack;
             } else if (!isMoving) {
                 nextAction = idle;
@@ -38,7 +39,6 @@ const Paradin = {
         } else if (crntAction == attack) {
             if (crntAction.time + deltaTime >= crntAction.getClip().duration) {
                 nextAction = idle;
-                character.userData.attack = false;
             }
         }
         if (nextAction == attack) {

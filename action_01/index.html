@@ -47,9 +47,9 @@
             <div id="right" class="arrowButton"
                 style="top: 35%; left: 29%; background-image:url(../assets/gray_arrow.png); transform: rotate(90deg)">
             </div>
-            <button id="action" type="button" class="pushButton" style="width: 13%;top: 45%; right: 3%;" value="0">
-                Act
-            </button>
+            <div id="action" class="arrowButton"
+                style="top: 35%; right: 3%; background-image:url(../assets/gray_circle.png);">
+            </div>
         </div>
     </div>
     <script type="text/javascript">
@@ -114,11 +114,7 @@
                 /* 主要な HTML 要素の取得 */
                 const divScreen = document.getElementById("screen");
                 const divGlView = document.getElementById("glView");
-                const btnAction = document.getElementById("action");
                 divGlView.removeChild(document.getElementById('startButton'));
-                btnAction.addEventListener("click", function () {
-                    character.userData.attack = true;
-                });
 
                 /* デバッグ用の出力 */
                 const AUTO_SCROLL_DEBUG = true; // taDebugText を常に最新の行までスクロールさせるかどうか。
@@ -194,8 +190,12 @@
                 elems = document.getElementsByClassName("arrowButton"); // class 属性に arrowButton が指定された HTML 要素を全て取得し、配列に格納する。
                 const arrows = {}; // div の id と十字キーボタンクラスをペアとする辞書
                 for (let e of elems) {
-                    arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
-                    /* 十字キーボタンを生成する。第一引数はボタン領域となる HTML の div 要素、第二引数は押したときの画像 */
+                    if (e.id == "action") {
+                        arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_circle.png)");
+                    } else {
+                        arrows[e.id] = new mylib2020.ArrowButton(e, "url(../assets/red_arrow.png)");
+                        /* 十字キーボタンを生成する。第一引数はボタン領域となる HTML の div 要素、第二引数は押したときの画像 */
+                    }
                 }
                 /* アニメーションのための描画更新処理 */
                 function renderFrame() {
