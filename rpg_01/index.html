@@ -148,10 +148,10 @@
                     // Check encounter
                     const rand = Math.random();
                     if (rand < ENCOUNTER && move) {
-                        monster = new MyGameCharacter("開発中", "../assets/downloads/red-dragon-1549047184nu3.png", 30, 20, 4, 3);
+                        monster = new MyGameCharacter("サンプルモンスター", "../assets/downloads/red-dragon-1549047184nu3.png", 30, 20, 4, 3);
                         monster.wepon.name = "牙";
                         monster.show(divGlView);
-                        taMessage.value += monster.name + "に遭遇した。\n";
+                        taMessage.value += "\n" + monster.name + "に遭遇した。\n";
                     }
                 }
                 //
